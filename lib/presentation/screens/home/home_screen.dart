@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../controllers/dashboard_controller.dart';
@@ -89,7 +90,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => AddReadingSheet.show(context),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            AddReadingSheet.show(context);
+          },
         icon: const Icon(Icons.add_rounded),
         label: const Text('Reading'),
       ),
@@ -99,8 +103,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           borderRadius: BorderRadius.circular(28),
           child: NavigationBar(
             selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) =>
-                setState(() => _selectedIndex = index),
+            onDestinationSelected: (index) {
+              HapticFeedback.selectionClick();
+              setState(() => _selectedIndex = index);
+            },
             destinations: const [
               NavigationDestination(
                 icon: Icon(Icons.dashboard_outlined),

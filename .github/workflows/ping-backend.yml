@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping backend health endpoint
         env:
-          STEALTHERA_API_BASE_URL: ${{ secrets.STEALTHERA_API_BASE_URL }}
+          STEALTHERA_API_BASE_URL: https://health-monitoring-app-hhiu.onrender.com/api
         run: |
           if [ -z "$STEALTHERA_API_BASE_URL" ]; then
             echo "STEALTHERA_API_BASE_URL is not configured yet."
@@ -21,4 +21,4 @@ jobs:
 
           BACKEND_ORIGIN="${STEALTHERA_API_BASE_URL%/api}"
           BACKEND_ORIGIN="${BACKEND_ORIGIN%/}"
-          curl --fail --silent --show-error --location --max-time 20 --retry 2 --retry-delay 5 "$BACKEND_ORIGIN/healthz"
+          curl --fail --silent --show-error --location --max-time 45 --retry 3 --retry-delay 10 "$BACKEND_ORIGIN/healthz"

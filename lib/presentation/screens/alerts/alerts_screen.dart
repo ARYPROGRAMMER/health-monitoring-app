@@ -145,15 +145,18 @@ class _AlertTile extends ConsumerWidget {
             style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
           ),
           const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.tonalIcon(
-              onPressed: () => ref
-                  .read(dashboardControllerProvider.notifier)
-                  .resolveAlert(alert.id),
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              label: const Text('Resolve'),
-            ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.tonalIcon(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    ref
+                        .read(dashboardControllerProvider.notifier)
+                        .resolveAlert(alert.id);
+                  },
+                  icon: const Icon(Icons.check_circle_outline_rounded),
+                  label: const Text('Resolve'),
+                ),
           ),
         ],
       ),

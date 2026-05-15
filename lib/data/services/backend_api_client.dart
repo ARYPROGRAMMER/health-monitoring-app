@@ -43,7 +43,7 @@ class BackendApiClient {
 
   static const _configuredBaseUrl = String.fromEnvironment(
     'STEALTHERA_API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8080/api',
+    defaultValue: 'https://health-monitoring-app-hhiu.onrender.com/api',
   );
   static String get _baseUrl {
     final trimmed = _configuredBaseUrl.endsWith('/')
