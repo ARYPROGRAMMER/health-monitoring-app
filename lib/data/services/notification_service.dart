@@ -17,7 +17,7 @@ class NotificationService {
     await _plugin.initialize(
       settings: const InitializationSettings(android: android, iOS: darwin),
     );
-    await _plugin
+    _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >()
