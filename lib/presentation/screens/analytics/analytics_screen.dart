@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
@@ -18,23 +19,33 @@ class AnalyticsScreen extends ConsumerWidget {
     return state.when(
       data: (summary) {
         if (summary == null || !summary.hasVitals) {
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: const [
-              EmptyState(
-                icon: Icons.query_stats_rounded,
-                title: 'No trends available',
-                message:
-                    'Charts appear after heart rate, SpO2, sleep, or activity readings are synced.',
-              ),
-            ],
+          return RefreshIndicator(
+            onRefresh: () async {
+              HapticFeedback.lightImpact();
+              await ref.read(dashboardControllerProvider.notifier).refresh();
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              children: const [
+                EmptyState(
+                  icon: Icons.query_stats_rounded,
+                  title: 'No trends available',
+                  message:
+                      'Charts appear after heart rate, SpO2, sleep, or activity readings are synced.',
+                ),
+              ],
+            ),
           );
         }
 
         return RefreshIndicator(
-          onRefresh: () =>
-              ref.read(dashboardControllerProvider.notifier).refresh(),
+          onRefresh: () async {
+            HapticFeedback.lightImpact();
+            await ref.read(dashboardControllerProvider.notifier).refresh();
+          },
           child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
             children: [
               _TrendChart(
@@ -69,15 +80,22 @@ class AnalyticsScreen extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          EmptyState(
-            icon: Icons.error_outline_rounded,
-            title: 'Unable to load analytics',
-            message: error.toString(),
-          ),
-        ],
+      error: (error, stackTrace) => RefreshIndicator(
+        onRefresh: () async {
+          HapticFeedback.lightImpact();
+          await ref.read(dashboardControllerProvider.notifier).refresh();
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          children: [
+            EmptyState(
+              icon: Icons.error_outline_rounded,
+              title: 'Unable to load analytics',
+              message: error.toString(),
+            ),
+          ],
+        ),
       ),
     );
   }

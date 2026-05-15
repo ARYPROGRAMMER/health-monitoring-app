@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health_models.dart';
@@ -17,9 +18,12 @@ class DashboardScreen extends ConsumerWidget {
 
     return state.when(
       data: (summary) => RefreshIndicator(
-        onRefresh: () =>
-            ref.read(dashboardControllerProvider.notifier).refresh(),
+        onRefresh: () async {
+          HapticFeedback.lightImpact();
+          await ref.read(dashboardControllerProvider.notifier).refresh();
+        },
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
           children: [
             if (summary?.isOffline == true)
@@ -33,7 +37,10 @@ class DashboardScreen extends ConsumerWidget {
                 message:
                     'Add your first reading to populate vitals, alerts, charts, insights, and offline cache.',
                 action: FilledButton.icon(
-                  onPressed: () => AddReadingSheet.show(context),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    AddReadingSheet.show(context);
+                  },
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('Add reading'),
                 ),
@@ -54,21 +61,30 @@ class DashboardScreen extends ConsumerWidget {
         ),
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          EmptyState(
-            icon: Icons.cloud_off_rounded,
-            title: 'Backend unavailable',
-            message: error.toString(),
-            action: ElevatedButton.icon(
-              onPressed: () =>
-                  ref.read(dashboardControllerProvider.notifier).refresh(),
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try again'),
+      error: (error, stackTrace) => RefreshIndicator(
+        onRefresh: () async {
+          HapticFeedback.lightImpact();
+          await ref.read(dashboardControllerProvider.notifier).refresh();
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          children: [
+            EmptyState(
+              icon: Icons.cloud_off_rounded,
+              title: 'Backend unavailable',
+              message: error.toString(),
+              action: ElevatedButton.icon(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  ref.read(dashboardControllerProvider.notifier).refresh();
+                },
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Try again'),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

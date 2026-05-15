@@ -3,7 +3,7 @@ name: Ping Backend
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: "*/15 * * * *"
 
 jobs:
   ping:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping backend health endpoint
         env:
-          STEALTHERA_API_BASE_URL: ${{ vars.STEALTHERA_API_BASE_URL }}
+          STEALTHERA_API_BASE_URL: ${{ secrets.STEALTHERA_API_BASE_URL }}
         run: |
           if [ -z "$STEALTHERA_API_BASE_URL" ]; then
             echo "STEALTHERA_API_BASE_URL is not configured yet."

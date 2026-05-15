@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class BackendApiClient {
@@ -9,10 +10,22 @@ class BackendApiClient {
           Dio(
             BaseOptions(
               baseUrl: _baseUrl,
-              connectTimeout: const Duration(seconds: 15),
-              receiveTimeout: const Duration(seconds: 20),
+              connectTimeout: const Duration(seconds: 45),
+              receiveTimeout: const Duration(seconds: 45),
             ),
           ) {
+    _dio.interceptors.add(
+      RetryInterceptor(
+        dio: _dio,
+        logPrint: print,
+        retries: 3,
+        retryDelays: const [
+          Duration(seconds: 2),
+          Duration(seconds: 5),
+          Duration(seconds: 10),
+        ],
+      ),
+    );
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {

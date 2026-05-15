@@ -68,17 +68,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: IconButton.filledTonal(
-              tooltip: 'Refresh',
-              onPressed: () =>
-                  ref.read(dashboardControllerProvider.notifier).refresh(),
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-          ),
-        ],
       ),
       body: AnimatedGradientBackground(
         child: SafeArea(
