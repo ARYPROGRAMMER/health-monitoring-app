@@ -42,6 +42,7 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
 
     return AnimatedBuilder(
       animation: _controller,
+      child: widget.child,
       builder: (context, child) {
         final value = _controller.value;
 
@@ -101,7 +102,8 @@ class _SignalFieldPainter extends CustomPainter {
       final offset = math.sin(progress * math.pi * 2 + y * 0.018) * 14;
       path.moveTo(0, y + offset);
 
-      for (double x = 0; x <= size.width; x += size.width / 5) {
+      final step = math.max<double>(size.width / 5, 20.0);
+      for (double x = 0; x <= size.width + step; x += step) {
         final nextY =
             y + math.sin((x * 0.01) + progress * math.pi * 2) * 12 + offset;
         path.lineTo(x, nextY);
