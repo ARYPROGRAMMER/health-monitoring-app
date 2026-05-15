@@ -47,3 +47,10 @@ app.*.map.json
 # Backend
 backend/node_modules/
 backend/.env
+backend/firebase-service-account.json
+backend/service-account.json
+
+# Android signing
+android/key.properties
+android/app/upload-keystore.jks
+android/app/release-keystore.jks

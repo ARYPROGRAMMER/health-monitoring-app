@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class AppTheme {
   static const Color primary = Color(0xFF0D9488);
   static const Color secondary = Color(0xFF2563EB);
+  static const Color accent = Color(0xFFFB7185);
   static const Color background = Color(0xFFF7FAF9);
   static const Color darkBackground = Color(0xFF071114);
 
@@ -19,9 +20,15 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: Colors.white.withValues(alpha: 0.84),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
@@ -60,9 +67,15 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: darkBackground,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF102026),
+        fillColor: const Color(0xFF102026).withValues(alpha: 0.84),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),

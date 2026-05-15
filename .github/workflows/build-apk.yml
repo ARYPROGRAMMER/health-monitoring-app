@@ -1,0 +1,74 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Restore Firebase config
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          fi
+
+      - name: Restore Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+            {
+              printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+              printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+              printf 'keyAlias=%s\n' "$KEY_ALIAS"
+              printf 'storeFile=app/upload-keystore.jks\n'
+            } > android/key.properties
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Build release APK
+        env:
+          STEALTHERA_API_BASE_URL: ${{ vars.STEALTHERA_API_BASE_URL }}
+        run: |
+          if [ -n "$STEALTHERA_API_BASE_URL" ]; then
+            flutter build apk --release --dart-define=STEALTHERA_API_BASE_URL="$STEALTHERA_API_BASE_URL"
+          else
+            flutter build apk --release
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: stealthera-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk

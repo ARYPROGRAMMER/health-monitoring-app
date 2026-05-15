@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/providers/app_providers.dart';
 import '../home/home_screen.dart';
+import '../splash/splash_screen.dart';
 import 'auth_screen.dart';
 
 class AuthGate extends ConsumerWidget {
@@ -15,10 +16,11 @@ class AuthGate extends ConsumerWidget {
     return authState.when(
       data: (user) => AnimatedSwitcher(
         duration: const Duration(milliseconds: 350),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
         child: user == null ? const AuthScreen() : const HomeScreen(),
       ),
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () => const SplashScreen(),
       error: (error, stackTrace) => Scaffold(
         body: Center(
           child: Padding(
