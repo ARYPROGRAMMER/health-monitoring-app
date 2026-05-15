@@ -29,6 +29,9 @@ class DashboardController extends AsyncNotifier<DashboardSummaryModel?> {
 
     try {
       final summary = await ref.read(healthRepositoryProvider).fetchDashboard();
+      await ref
+          .read(appThemeModeProvider.notifier)
+          .applySettings(summary.settings);
 
       if (summary.settings.notificationsEnabled) {
         await NotificationService.instance.showHealthAlerts(
@@ -63,6 +66,7 @@ class DashboardController extends AsyncNotifier<DashboardSummaryModel?> {
       final updated = await ref
           .read(healthRepositoryProvider)
           .updateSettings(settings);
+      await ref.read(appThemeModeProvider.notifier).applySettings(updated);
 
       if (current == null) {
         await refresh();
@@ -117,6 +121,33 @@ class DashboardController extends AsyncNotifier<DashboardSummaryModel?> {
       await refresh(silent: true);
     } catch (_) {
       state = AsyncData(current);
+    }
+  }
+
+  Future<void> syncReading(HealthReadingModel reading) async {
+    final current = state.asData?.value;
+
+    try {
+      final summary = await ref
+          .read(healthRepositoryProvider)
+          .syncReading(reading);
+      await ref
+          .read(appThemeModeProvider.notifier)
+          .applySettings(summary.settings);
+
+      if (summary.settings.notificationsEnabled) {
+        await NotificationService.instance.showHealthAlerts(
+          summary.activeAlerts,
+        );
+      }
+
+      state = AsyncData(summary);
+    } catch (_) {
+      if (current != null) {
+        state = AsyncData(current);
+      }
+
+      rethrow;
     }
   }
 }

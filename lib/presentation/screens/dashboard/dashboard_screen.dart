@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health_models.dart';
 import '../../controllers/dashboard_controller.dart';
+import '../../widgets/add_reading_sheet.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/glass_panel.dart';
 import '../../widgets/metric_card.dart';
@@ -30,12 +31,11 @@ class DashboardScreen extends ConsumerWidget {
                 icon: Icons.sensors_rounded,
                 title: 'No health readings yet',
                 message:
-                    'Connect a wearable or sync readings through the backend to populate vitals, alerts, charts, and insights.',
-                action: OutlinedButton.icon(
-                  onPressed: () =>
-                      ref.read(dashboardControllerProvider.notifier).refresh(),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Refresh'),
+                    'Add your first reading to populate vitals, alerts, charts, insights, and offline cache.',
+                action: FilledButton.icon(
+                  onPressed: () => AddReadingSheet.show(context),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Add reading'),
                 ),
               )
             else

@@ -212,6 +212,13 @@ class _ThresholdsCardState extends ConsumerState<_ThresholdsCard> {
             ),
             title: const Text('Local health notifications'),
           ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: _draft.darkMode,
+            onChanged: (value) =>
+                setState(() => _draft = _draft.copyWith(darkMode: value)),
+            title: const Text('Dark mode'),
+          ),
           const SizedBox(height: 14),
           ElevatedButton.icon(
             onPressed: () => ref

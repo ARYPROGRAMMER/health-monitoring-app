@@ -16,6 +16,10 @@ class CacheService {
     await _box.put(key, value);
   }
 
+  Future<void> writeString(String key, String value) async {
+    await _box.put(key, value);
+  }
+
   Map<String, dynamic>? readJson(String key) {
     final value = _box.get(key);
 
@@ -37,5 +41,15 @@ class CacheService {
     }
 
     return [];
+  }
+
+  String? readString(String key) {
+    final value = _box.get(key);
+
+    if (value is String) {
+      return value;
+    }
+
+    return null;
   }
 }

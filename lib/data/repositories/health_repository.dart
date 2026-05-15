@@ -36,15 +36,15 @@ class HealthRepository {
   Future<DashboardSummaryModel> fetchDashboard() async {
     final data = await _apiClient.getDashboard();
     final summary = DashboardSummaryModel.fromJson(data);
-    await _cacheService.writeJson(CacheKeys.dashboard, summary.toJson());
-    await _cacheService.writeJson(
-      CacheKeys.settings,
-      summary.settings.toJson(),
-    );
-    await _cacheService.writeJsonList(
-      CacheKeys.alerts,
-      summary.activeAlerts.map((alert) => alert.toJson()).toList(),
-    );
+    await _cacheDashboard(summary);
+
+    return summary;
+  }
+
+  Future<DashboardSummaryModel> syncReading(HealthReadingModel reading) async {
+    final data = await _apiClient.syncReadings([reading.toJson()]);
+    final summary = DashboardSummaryModel.fromJson(data);
+    await _cacheDashboard(summary);
 
     return summary;
   }
@@ -70,5 +70,17 @@ class HealthRepository {
     final data = await _apiClient.updateAlertStatus(alertId, 'resolved');
 
     return HealthAlertModel.fromJson(data);
+  }
+
+  Future<void> _cacheDashboard(DashboardSummaryModel summary) async {
+    await _cacheService.writeJson(CacheKeys.dashboard, summary.toJson());
+    await _cacheService.writeJson(
+      CacheKeys.settings,
+      summary.settings.toJson(),
+    );
+    await _cacheService.writeJsonList(
+      CacheKeys.alerts,
+      summary.activeAlerts.map((alert) => alert.toJson()).toList(),
+    );
   }
 }

@@ -1,9 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive/hive.dart';
 
+import '../../core/constants/cache_keys.dart';
+import '../models/health_models.dart';
 import '../models/user_profile_model.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/health_repository.dart';
@@ -64,3 +67,41 @@ final healthRepositoryProvider = Provider<HealthRepository>((ref) {
     cacheService: ref.watch(cacheServiceProvider),
   );
 });
+
+final appThemeModeProvider =
+    NotifierProvider<AppThemeModeController, ThemeMode>(
+      AppThemeModeController.new,
+    );
+
+class AppThemeModeController extends Notifier<ThemeMode> {
+  @override
+  ThemeMode build() {
+    final cachedValue = ref
+        .watch(cacheServiceProvider)
+        .readString(CacheKeys.themeMode);
+
+    if (cachedValue == 'dark') {
+      return ThemeMode.dark;
+    }
+
+    if (cachedValue == 'light') {
+      return ThemeMode.light;
+    }
+
+    final settings = ref.watch(healthRepositoryProvider).cachedSettings();
+    return settings.darkMode ? ThemeMode.dark : ThemeMode.light;
+  }
+
+  Future<void> applySettings(HealthSettingsModel settings) async {
+    await setDarkMode(settings.darkMode);
+  }
+
+  Future<void> setDarkMode(bool enabled) async {
+    final cacheService = ref.read(cacheServiceProvider);
+    await cacheService.writeString(
+      CacheKeys.themeMode,
+      enabled ? 'dark' : 'light',
+    );
+    state = enabled ? ThemeMode.dark : ThemeMode.light;
+  }
+}

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../controllers/dashboard_controller.dart';
+import '../../widgets/add_reading_sheet.dart';
 import '../../widgets/animated_gradient_background.dart';
 import '../../widgets/brand_mark.dart';
 import '../alerts/alerts_screen.dart';
@@ -97,6 +98,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => AddReadingSheet.show(context),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Reading'),
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

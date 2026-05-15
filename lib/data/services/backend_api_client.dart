@@ -55,6 +55,17 @@ class BackendApiClient {
     return _extractData(response);
   }
 
+  Future<Map<String, dynamic>> syncReadings(
+    List<Map<String, dynamic>> readings,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/health/sync',
+      data: {'readings': readings},
+    );
+
+    return _extractData(response);
+  }
+
   Future<List<Map<String, dynamic>>> getAlerts() async {
     final response = await _dio.get<Map<String, dynamic>>('/alerts');
     final data = response.data?['data'];
