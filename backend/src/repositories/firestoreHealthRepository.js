@@ -1,4 +1,4 @@
-import { createDefaultAlerts, createDefaultProfile, createSampleReadings, defaultSettings } from '../data/sampleData.js';
+import { createDefaultProfile, defaultSettings } from '../data/defaults.js';
 
 export class FirestoreHealthRepository {
   constructor(firestore) {
@@ -58,14 +58,6 @@ export class FirestoreHealthRepository {
     const collection = this.userDocument(user).collection('readings');
     const snapshot = await collection.orderBy('recordedAt', 'desc').limit(96).get();
 
-    if (snapshot.empty) {
-      const readings = createSampleReadings();
-      const batch = this.firestore.batch();
-      readings.forEach((reading) => batch.set(collection.doc(reading.id), reading, { merge: true }));
-      await batch.commit();
-      return readings;
-    }
-
     return snapshot.docs.map((doc) => doc.data()).sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt));
   }
 
@@ -85,14 +77,6 @@ export class FirestoreHealthRepository {
   async getAlerts(user) {
     const collection = this.userDocument(user).collection('alerts');
     const snapshot = await collection.orderBy('createdAt', 'desc').limit(50).get();
-
-    if (snapshot.empty) {
-      const alerts = createDefaultAlerts();
-      const batch = this.firestore.batch();
-      alerts.forEach((alert) => batch.set(collection.doc(alert.id), alert, { merge: true }));
-      await batch.commit();
-      return alerts;
-    }
 
     return snapshot.docs.map((doc) => doc.data());
   }

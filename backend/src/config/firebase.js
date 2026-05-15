@@ -49,21 +49,11 @@ const initializeFirebase = () => {
     });
   }
 
-  return null;
+  throw new Error('Firebase Admin credentials are required');
 };
 
-let firebaseApp = null;
-
-try {
-  firebaseApp = initializeFirebase();
-} catch (error) {
-  if (!env.allowDemoAuth) {
-    throw error;
-  }
-
-  console.warn(`Firebase Admin skipped: ${error.message}`);
-}
+const firebaseApp = initializeFirebase();
 
 export const firebaseAdmin = admin;
 export const firebaseAppInstance = firebaseApp;
-export const firestore = firebaseApp ? admin.firestore() : null;
+export const firestore = admin.firestore();
