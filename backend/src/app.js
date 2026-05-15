@@ -2,7 +2,9 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env.js';
+import { swaggerOptions } from './config/swagger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { createHealthRepository } from './repositories/repositoryFactory.js';
 import { apiRoutes } from './routes/index.js';
@@ -52,6 +54,8 @@ export const createApp = () => {
       timestamp: new Date().toISOString()
     }, 'Backend is healthy');
   });
+
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerOptions));
 
   app.use('/api', apiRoutes({ healthDataService }));
   app.use(notFoundHandler);

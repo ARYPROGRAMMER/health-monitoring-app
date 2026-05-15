@@ -44,6 +44,18 @@ class AuthController extends Notifier<AsyncValue<void>> {
     await _run(() => ref.read(authRepositoryProvider).signOut());
   }
 
+  Future<String?> getIdToken() async {
+    try {
+      final user = ref.read(authRepositoryProvider).currentUser;
+      if (user == null) return null;
+      
+      final idTokenResult = await user.getIdTokenResult(true);
+      return idTokenResult.token;
+    } catch (error) {
+      return null;
+    }
+  }
+
   Future<void> _run(Future<void> Function() action) async {
     state = const AsyncLoading();
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health_models.dart';
@@ -38,6 +39,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             _ThresholdsCard(settings: settings),
+            const SizedBox(height: 16),
+            _ApiTokenCard(),
             const SizedBox(height: 16),
             GlassPanel(
               child: Column(
@@ -296,5 +299,113 @@ class _SliderRow extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _ApiTokenCard extends ConsumerWidget {
+  const _ApiTokenCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Developer API Token',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Use this token to manually test API endpoints via Swagger',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: () => _showTokenDialog(context, ref, theme),
+            icon: const Icon(Icons.vpn_key_rounded),
+            label: const Text('View & Copy Token'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTokenDialog(BuildContext context, WidgetRef ref, ThemeData theme) async {
+    final authController = ref.read(authActionProvider.notifier);
+    final token = await authController.getIdToken();
+
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Your API Token'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Use this Bearer token in the Authorization header:',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.maxFinite,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withOpacity(0.3),
+                    ),
+                  ),
+                  child: SelectableText(
+                    token ?? 'Unable to retrieve token',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Token expires in 1 hour and refreshes automatically when you interact with the app.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (token != null)
+              TextButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: token));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Token copied to clipboard'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.content_copy_rounded),
+                label: const Text('Copy Token'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }
