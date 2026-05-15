@@ -14,9 +14,7 @@ export const settingsUpdateSchema = z.object({
   sleepTargetHours: z.number().min(4).max(12).optional(),
   notificationsEnabled: z.boolean().optional(),
   darkMode: z.boolean().optional()
-}).strict().refine((value) => Object.keys(value).length > 0, {
-  message: 'At least one setting must be provided'
-});
+}).strict();
 
 export const readingSchema = z.object({
   id: z.string().trim().min(3).max(120).optional(),

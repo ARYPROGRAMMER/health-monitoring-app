@@ -88,8 +88,8 @@ class AppThemeModeController extends Notifier<ThemeMode> {
       return ThemeMode.light;
     }
 
-    // If no cached value, follow system theme
-    return ThemeMode.system;
+    // Default to dark if no cached value
+    return ThemeMode.dark;
   }
 
   Future<void> applySettings(HealthSettingsModel settings) async {
