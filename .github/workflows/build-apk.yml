@@ -67,7 +67,12 @@ jobs:
           STEALTHERA_API_BASE_URL: ${{ vars.STEALTHERA_API_BASE_URL }}
         run: |
           if [ -n "$STEALTHERA_API_BASE_URL" ]; then
-            flutter build apk --release --dart-define=STEALTHERA_API_BASE_URL="$STEALTHERA_API_BASE_URL"
+            API_BASE="${STEALTHERA_API_BASE_URL%/}"
+            case "$API_BASE" in
+              */api) ;;
+              *) API_BASE="$API_BASE/api" ;;
+            esac
+            flutter build apk --release --dart-define=STEALTHERA_API_BASE_URL="$API_BASE"
           else
             flutter build apk --release
           fi

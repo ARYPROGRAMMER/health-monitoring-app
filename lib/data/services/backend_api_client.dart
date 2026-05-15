@@ -28,10 +28,17 @@ class BackendApiClient {
     );
   }
 
-  static const _baseUrl = String.fromEnvironment(
+  static const _configuredBaseUrl = String.fromEnvironment(
     'STEALTHERA_API_BASE_URL',
     defaultValue: 'http://10.0.2.2:8080/api',
   );
+  static String get _baseUrl {
+    final trimmed = _configuredBaseUrl.endsWith('/')
+        ? _configuredBaseUrl.substring(0, _configuredBaseUrl.length - 1)
+        : _configuredBaseUrl;
+
+    return trimmed.endsWith('/api') ? trimmed : '$trimmed/api';
+  }
 
   final FirebaseAuth _firebaseAuth;
   final Dio _dio;

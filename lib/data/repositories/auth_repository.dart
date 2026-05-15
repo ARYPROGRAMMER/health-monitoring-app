@@ -17,6 +17,7 @@ class AuthRepository {
   final FirebaseAuth _firebaseAuth;
   final FirebaseFirestore _firestore;
   final GoogleSignIn _googleSignIn;
+  Future<void>? _googleSignInInitialization;
 
   Stream<User?> authStateChanges() {
     return _firebaseAuth.authStateChanges();
@@ -71,6 +72,8 @@ class AuthRepository {
   }
 
   Future<UserCredential> signInWithGoogle() async {
+    await _ensureGoogleSignInInitialized();
+
     if (!_googleSignIn.supportsAuthenticate()) {
       final provider = GoogleAuthProvider();
       provider.addScope('email');
@@ -100,7 +103,25 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
-    await Future.wait([_firebaseAuth.signOut(), _googleSignIn.signOut()]);
+    await _firebaseAuth.signOut();
+
+    try {
+      await _ensureGoogleSignInInitialized();
+      await _googleSignIn.signOut();
+    } catch (_) {}
+  }
+
+  Future<void> _ensureGoogleSignInInitialized() async {
+    _googleSignInInitialization ??= _googleSignIn.initialize().timeout(
+      const Duration(seconds: 10),
+    );
+
+    try {
+      await _googleSignInInitialization;
+    } catch (_) {
+      _googleSignInInitialization = null;
+      rethrow;
+    }
   }
 
   Future<void> _ensureProfile(User? user) async {

@@ -35,21 +35,23 @@ class NotificationService {
       }
 
       _shownAlertIds.add(alert.id);
-      await _plugin.show(
-        id: alert.id.hashCode.abs(),
-        title: alert.title,
-        body: alert.message,
-        notificationDetails: const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'stealthera_health_alerts',
-            'Health alerts',
-            channelDescription: 'Health threshold and wellness alerts',
-            importance: Importance.high,
-            priority: Priority.high,
+      try {
+        await _plugin.show(
+          id: alert.id.hashCode.abs(),
+          title: alert.title,
+          body: alert.message,
+          notificationDetails: const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'stealthera_health_alerts',
+              'Health alerts',
+              channelDescription: 'Health threshold and wellness alerts',
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+            iOS: DarwinNotificationDetails(),
           ),
-          iOS: DarwinNotificationDetails(),
-        ),
-      );
+        );
+      } catch (_) {}
     }
   }
 }
