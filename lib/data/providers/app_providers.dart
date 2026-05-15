@@ -33,12 +33,8 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   );
 });
 
-final authStateProvider = StreamProvider<User?>((ref) async* {
-  final repository = ref.watch(authRepositoryProvider);
-  yield repository.currentUser;
-  yield* repository.authStateChanges().distinct(
-    (previous, next) => previous?.uid == next?.uid,
-  );
+final authStateProvider = StreamProvider<User?>((ref) {
+  return ref.watch(authRepositoryProvider).authStateChanges();
 });
 
 final currentUserProfileProvider = StreamProvider<UserProfileModel?>((ref) {
