@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "819719711174",
+    "project_id": "stealthera",
+    "storage_bucket": "stealthera.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:819719711174:android:9308530ac427d227cdeac7",
+        "android_client_info": {
+          "package_name": "com.example.health_monitoring_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "819719711174-j99htumgak12rec63itkv7vnvii8peil.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD19fhQE6RtRaxb3MGwi7dlEu13HFI0IO8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "819719711174-j99htumgak12rec63itkv7vnvii8peil.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "819719711174-61u1mgfvod5o7nr9kehlj3lgqmqr76rc.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.healthMonitoringApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
