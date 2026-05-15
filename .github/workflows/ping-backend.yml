@@ -1,0 +1,24 @@
+name: Ping Backend
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping backend health endpoint
+        env:
+          STEALTHERA_API_BASE_URL: ${{ vars.STEALTHERA_API_BASE_URL }}
+        run: |
+          if [ -z "$STEALTHERA_API_BASE_URL" ]; then
+            echo "STEALTHERA_API_BASE_URL is not configured yet."
+            exit 0
+          fi
+
+          BACKEND_ORIGIN="${STEALTHERA_API_BASE_URL%/api}"
+          BACKEND_ORIGIN="${BACKEND_ORIGIN%/}"
+          curl --fail --silent --show-error --location --max-time 20 --retry 2 --retry-delay 5 "$BACKEND_ORIGIN/healthz"
