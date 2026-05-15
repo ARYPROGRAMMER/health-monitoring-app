@@ -13,6 +13,16 @@ export const errorHandler = (error, request, response, next) => {
   const message = statusCode === 500 && env.isProduction ? 'Internal server error' : error.message;
   const details = isValidationError ? error.flatten() : error.details;
 
+  console.error(
+    `[${request?.method ?? 'UNKNOWN'}] ${request?.originalUrl ?? 'UNKNOWN'} ` +
+      `failed with ${statusCode}: ${message}`,
+    {
+      code: error.code ?? error.name ?? 'Error',
+      details: details ?? null,
+      body: request?.body ?? null
+    }
+  );
+
   response.status(statusCode).json({
     success: false,
     message,

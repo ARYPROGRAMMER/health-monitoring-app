@@ -28,6 +28,21 @@ export const createApp = () => {
   app.use(cors({ origin: resolveCorsOrigin(), credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(morgan(env.isProduction ? 'combined' : 'dev'));
+  app.use((request, response, next) => {
+    const startedAt = Date.now();
+
+    response.on('finish', () => {
+      if (request.path === '/api/health/sync' || request.path === '/api/health/dashboard') {
+        console.log(
+          `[${request.method}] ${request.originalUrl} ${response.statusCode} ` +
+            `${Date.now() - startedAt}ms user=${request.user?.uid ?? 'anonymous'} ` +
+            `body=${JSON.stringify(request.body ?? {})}`,
+        );
+      }
+    });
+
+    next();
+  });
 
   app.get('/healthz', (request, response) => {
     sendSuccess(response, {

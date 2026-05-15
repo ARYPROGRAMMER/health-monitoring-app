@@ -25,7 +25,7 @@ class HealthReadingModel {
       'type': type,
       'value': value,
       'unit': unit,
-      'recordedAt': recordedAt.toIso8601String(),
+      'recordedAt': recordedAt.toUtc().toIso8601String(),
     };
   }
 }

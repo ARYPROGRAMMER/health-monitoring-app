@@ -37,6 +37,24 @@ class BackendApiClient {
 
           handler.next(options);
         },
+        onResponse: (response, handler) {
+          print(
+            '[BackendApiClient] ${response.requestOptions.method} '
+            '${response.requestOptions.uri} -> ${response.statusCode}',
+          );
+          handler.next(response);
+        },
+        onError: (error, handler) {
+          print(
+            '[BackendApiClient] ${error.requestOptions.method} '
+            '${error.requestOptions.uri} failed: '
+            '${error.response?.statusCode ?? 'no-status'} ${error.message}',
+          );
+          if (error.response?.data != null) {
+            print('[BackendApiClient] response body: ${error.response?.data}');
+          }
+          handler.next(error);
+        },
       ),
     );
   }
