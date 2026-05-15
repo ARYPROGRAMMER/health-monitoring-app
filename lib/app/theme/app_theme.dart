@@ -14,12 +14,22 @@ class AppTheme {
       secondary: secondary,
       surface: Colors.white,
       brightness: Brightness.light,
+    ).copyWith(
+      surfaceTint: primary,
+      surfaceContainerLowest: const Color(0xFFFDFEFD),
+      surfaceContainerLow: const Color(0xFFF7FAF9),
+      surfaceContainer: const Color(0xFFF1F6F4),
+      surfaceContainerHigh: const Color(0xFFE8EEEC),
+      surfaceContainerHighest: const Color(0xFFE0E7E5),
+      outline: const Color(0xFFB9C8C4),
+      outlineVariant: const Color(0xFFD7E0DD),
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
+      canvasColor: background,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
@@ -61,12 +71,22 @@ class AppTheme {
       secondary: secondary,
       surface: const Color(0xFF0F1C20),
       brightness: Brightness.dark,
+    ).copyWith(
+      surfaceTint: primary,
+      surfaceContainerLowest: const Color(0xFF061114),
+      surfaceContainerLow: const Color(0xFF0A1519),
+      surfaceContainer: const Color(0xFF0F1C20),
+      surfaceContainerHigh: const Color(0xFF13252A),
+      surfaceContainerHighest: const Color(0xFF172B31),
+      outline: const Color(0xFF355056),
+      outlineVariant: const Color(0xFF22363B),
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: darkBackground,
+      canvasColor: darkBackground,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
