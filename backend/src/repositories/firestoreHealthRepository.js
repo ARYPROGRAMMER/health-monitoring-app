@@ -118,14 +118,14 @@ export class FirestoreHealthRepository {
       return null;
     }
 
+    const existingData = snapshot.data();
     const updates = {
       status,
-      resolvedAt: status === 'resolved' ? new Date().toISOString() : snapshot.data().resolvedAt ?? null
+      resolvedAt: status === 'resolved' ? new Date().toISOString() : existingData.resolvedAt ?? null
     };
 
     await reference.set(updates, { merge: true });
-    const updatedSnapshot = await reference.get();
 
-    return toSerializable(updatedSnapshot.data());
+    return toSerializable({ ...existingData, ...updates });
   }
 }

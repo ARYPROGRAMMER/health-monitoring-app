@@ -89,14 +89,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            AddReadingSheet.show(context);
-          },
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Reading'),
-      ),
+      floatingActionButton: _selectedIndex != 3
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                AddReadingSheet.show(context);
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Reading'),
+            )
+          : null,
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: ClipRRect(

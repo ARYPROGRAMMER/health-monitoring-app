@@ -28,6 +28,7 @@ class SettingsScreen extends ConsumerWidget {
               data: (userProfile) => _ProfileCard(
                 name: userProfile?.displayName ?? 'Stealthera Member',
                 email: userProfile?.email ?? '',
+                photoUrl: userProfile?.photoUrl,
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stackTrace) => _ProfileCard(
@@ -77,10 +78,11 @@ class SettingsScreen extends ConsumerWidget {
 }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.name, required this.email});
+  const _ProfileCard({required this.name, required this.email, this.photoUrl});
 
   final String name;
   final String email;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +91,19 @@ class _ProfileCard extends StatelessWidget {
     return GlassPanel(
       child: Row(
         children: [
-          const BrandMark(size: 58),
+          photoUrl != null && photoUrl!.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    photoUrl!,
+                    width: 58,
+                    height: 58,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const BrandMark(size: 58),
+                  ),
+                )
+              : const BrandMark(size: 58),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -215,8 +229,13 @@ class _ThresholdsCardState extends ConsumerState<_ThresholdsCard> {
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             value: _draft.darkMode,
-            onChanged: (value) =>
-                setState(() => _draft = _draft.copyWith(darkMode: value)),
+            onChanged: (value) {
+              setState(() => _draft = _draft.copyWith(darkMode: value));
+              ref
+                  .read(appThemeModeProvider.notifier)
+                  .setDarkMode(value)
+                  .ignore();
+            },
             title: const Text('Dark mode'),
           ),
           const SizedBox(height: 14),
