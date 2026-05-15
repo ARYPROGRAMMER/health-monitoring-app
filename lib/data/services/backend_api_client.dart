@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:dio/dio.dart';
 import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -17,7 +19,10 @@ class BackendApiClient {
     _dio.interceptors.add(
       RetryInterceptor(
         dio: _dio,
-        logPrint: print,
+        logPrint: (object) => developer.log(
+          object.toString(),
+          name: 'BackendApiClient',
+        ),
         retries: 3,
         retryDelays: const [
           Duration(seconds: 2),
@@ -38,20 +43,25 @@ class BackendApiClient {
           handler.next(options);
         },
         onResponse: (response, handler) {
-          print(
+          developer.log(
             '[BackendApiClient] ${response.requestOptions.method} '
             '${response.requestOptions.uri} -> ${response.statusCode}',
+            name: 'BackendApiClient',
           );
           handler.next(response);
         },
         onError: (error, handler) {
-          print(
+          developer.log(
             '[BackendApiClient] ${error.requestOptions.method} '
             '${error.requestOptions.uri} failed: '
             '${error.response?.statusCode ?? 'no-status'} ${error.message}',
+            name: 'BackendApiClient',
           );
           if (error.response?.data != null) {
-            print('[BackendApiClient] response body: ${error.response?.data}');
+            developer.log(
+              '[BackendApiClient] response body: ${error.response?.data}',
+              name: 'BackendApiClient',
+            );
           }
           handler.next(error);
         },
