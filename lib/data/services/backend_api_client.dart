@@ -37,8 +37,64 @@ class BackendApiClient {
   final Dio _dio;
 
   Future<Map<String, dynamic>> getDashboard() async {
-    final response = await _dio.get<Map<String, dynamic>>('/health/dashboard');
+    return _getData('/health/dashboard');
+  }
 
-    return response.data ?? <String, dynamic>{};
+  Future<Map<String, dynamic>> getSettings() async {
+    return _getData('/settings');
+  }
+
+  Future<Map<String, dynamic>> updateSettings(
+    Map<String, dynamic> updates,
+  ) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/settings',
+      data: updates,
+    );
+
+    return _extractData(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getAlerts() async {
+    final response = await _dio.get<Map<String, dynamic>>('/alerts');
+    final data = response.data?['data'];
+
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+
+    return [];
+  }
+
+  Future<Map<String, dynamic>> updateAlertStatus(
+    String alertId,
+    String status,
+  ) async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      '/alerts/$alertId',
+      data: {'status': status},
+    );
+
+    return _extractData(response);
+  }
+
+  Future<Map<String, dynamic>> _getData(String path) async {
+    final response = await _dio.get<Map<String, dynamic>>(path);
+
+    return _extractData(response);
+  }
+
+  Map<String, dynamic> _extractData(Response<Map<String, dynamic>> response) {
+    final payload = response.data ?? <String, dynamic>{};
+    final data = payload['data'];
+
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+
+    return <String, dynamic>{};
   }
 }

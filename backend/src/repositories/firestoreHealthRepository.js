@@ -1,5 +1,21 @@
 import { createDefaultProfile, defaultSettings } from '../data/defaults.js';
 
+const toSerializable = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(toSerializable);
+  }
+
+  if (value && typeof value.toDate === 'function') {
+    return value.toDate().toISOString();
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, toSerializable(entry)]));
+  }
+
+  return value;
+};
+
 export class FirestoreHealthRepository {
   constructor(firestore) {
     this.mode = 'firestore';
@@ -20,7 +36,7 @@ export class FirestoreHealthRepository {
       return profile;
     }
 
-    return snapshot.data();
+    return toSerializable(snapshot.data());
   }
 
   async updateProfile(user, updates) {
@@ -44,7 +60,7 @@ export class FirestoreHealthRepository {
       return { ...defaultSettings };
     }
 
-    return { ...defaultSettings, ...snapshot.data() };
+    return toSerializable({ ...defaultSettings, ...snapshot.data() });
   }
 
   async updateSettings(user, updates) {
@@ -58,7 +74,7 @@ export class FirestoreHealthRepository {
     const collection = this.userDocument(user).collection('readings');
     const snapshot = await collection.orderBy('recordedAt', 'desc').limit(96).get();
 
-    return snapshot.docs.map((doc) => doc.data()).sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt));
+    return snapshot.docs.map((doc) => toSerializable(doc.data())).sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt));
   }
 
   async addReadings(user, readings) {
@@ -78,7 +94,7 @@ export class FirestoreHealthRepository {
     const collection = this.userDocument(user).collection('alerts');
     const snapshot = await collection.orderBy('createdAt', 'desc').limit(50).get();
 
-    return snapshot.docs.map((doc) => doc.data());
+    return snapshot.docs.map((doc) => toSerializable(doc.data()));
   }
 
   async addAlerts(user, alerts) {
@@ -110,6 +126,6 @@ export class FirestoreHealthRepository {
     await reference.set(updates, { merge: true });
     const updatedSnapshot = await reference.get();
 
-    return updatedSnapshot.data();
+    return toSerializable(updatedSnapshot.data());
   }
 }

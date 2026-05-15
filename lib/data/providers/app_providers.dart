@@ -2,10 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:hive/hive.dart';
 
 import '../models/user_profile_model.dart';
 import '../repositories/auth_repository.dart';
+import '../repositories/health_repository.dart';
 import '../services/backend_api_client.dart';
+import '../services/cache_service.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>(
   (ref) => FirebaseAuth.instance,
@@ -49,4 +52,15 @@ final currentUserProfileProvider = StreamProvider<UserProfileModel?>((ref) {
 
 final backendApiClientProvider = Provider<BackendApiClient>((ref) {
   return BackendApiClient(firebaseAuth: ref.watch(firebaseAuthProvider));
+});
+
+final cacheServiceProvider = Provider<CacheService>((ref) {
+  return CacheService(Hive.box<dynamic>('stealthera_cache'));
+});
+
+final healthRepositoryProvider = Provider<HealthRepository>((ref) {
+  return HealthRepository(
+    apiClient: ref.watch(backendApiClientProvider),
+    cacheService: ref.watch(cacheServiceProvider),
+  );
 });

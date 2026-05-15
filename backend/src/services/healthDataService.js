@@ -66,6 +66,7 @@ export class HealthDataService {
       settings,
       latestVitals,
       trends,
+      alerts: allAlerts,
       activeAlerts: allAlerts.filter((alert) => alert.status === 'active'),
       sleep: this.latestReading(readings, 'sleep'),
       activity: this.latestReading(readings, 'activity'),

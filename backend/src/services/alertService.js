@@ -10,31 +10,31 @@ export class AlertService {
     const activity = latestReadings.activity;
 
     if (heartRate && heartRate.value > settings.heartRateMax) {
-      alerts.push(this.createAlert('heart_rate_high', 'critical', 'High heart rate detected', `Heart rate is ${heartRate.value} bpm, above your ${settings.heartRateMax} bpm threshold.`, heartRate.value, settings.heartRateMax, timestamp));
+      alerts.push(this.createAlert('heart_rate_high', 'critical', 'High heart rate detected', `Heart rate is ${heartRate.value} bpm, above your ${settings.heartRateMax} bpm threshold.`, heartRate.value, settings.heartRateMax, timestamp, heartRate.recordedAt));
     }
 
     if (heartRate && heartRate.value < settings.heartRateMin) {
-      alerts.push(this.createAlert('heart_rate_low', 'warning', 'Low heart rate detected', `Heart rate is ${heartRate.value} bpm, below your ${settings.heartRateMin} bpm threshold.`, heartRate.value, settings.heartRateMin, timestamp));
+      alerts.push(this.createAlert('heart_rate_low', 'warning', 'Low heart rate detected', `Heart rate is ${heartRate.value} bpm, below your ${settings.heartRateMin} bpm threshold.`, heartRate.value, settings.heartRateMin, timestamp, heartRate.recordedAt));
     }
 
     if (spo2 && spo2.value < settings.spo2Min) {
-      alerts.push(this.createAlert('spo2_low', 'critical', 'Low SpO2 warning', `SpO2 is ${spo2.value}%, below your ${settings.spo2Min}% threshold.`, spo2.value, settings.spo2Min, timestamp));
+      alerts.push(this.createAlert('spo2_low', 'critical', 'Low SpO2 warning', `SpO2 is ${spo2.value}%, below your ${settings.spo2Min}% threshold.`, spo2.value, settings.spo2Min, timestamp, spo2.recordedAt));
     }
 
     if (sleep && sleep.value < settings.sleepTargetHours - 1) {
-      alerts.push(this.createAlert('sleep_low', 'info', 'Sleep recovery watch', `Sleep is ${sleep.value} hours, below your ${settings.sleepTargetHours} hour target.`, sleep.value, settings.sleepTargetHours, timestamp));
+      alerts.push(this.createAlert('sleep_low', 'info', 'Sleep recovery watch', `Sleep is ${sleep.value} hours, below your ${settings.sleepTargetHours} hour target.`, sleep.value, settings.sleepTargetHours, timestamp, sleep.recordedAt));
     }
 
     if (activity && activity.value < settings.dailyStepsGoal * 0.55) {
-      alerts.push(this.createAlert('activity_low', 'info', 'Activity goal lagging', `Steps are at ${activity.value}, below your usual goal pace.`, activity.value, settings.dailyStepsGoal, timestamp));
+      alerts.push(this.createAlert('activity_low', 'info', 'Activity goal lagging', `Steps are at ${activity.value}, below your usual goal pace.`, activity.value, settings.dailyStepsGoal, timestamp, activity.recordedAt));
     }
 
     return alerts;
   }
 
-  createAlert(type, severity, title, message, metricValue, thresholdValue, timestamp) {
+  createAlert(type, severity, title, message, metricValue, thresholdValue, timestamp, readingTimestamp) {
     return {
-      id: `${type}-${timestamp}`,
+      id: `${type}-${readingTimestamp ?? timestamp}`,
       type,
       severity,
       title,
