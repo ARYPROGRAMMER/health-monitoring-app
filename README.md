@@ -1,16 +1,17 @@
-# health_monitoring_app
+# Stealthera
 
-A new Flutter project.
+Health monitoring companion app with a Flutter mobile client and Express.js backend.
 
-## Getting Started
+## Run
 
-This project is a starting point for a Flutter application.
+```sh
+flutter pub get
+flutter run
+cd backend
+npm install
+npm run dev
+```
 
-A few resources to get you started if this is your first Flutter project:
+## Stack
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Flutter, Firebase Authentication, Cloud Firestore, Express.js, Dio, Hive, Syncfusion Charts.
