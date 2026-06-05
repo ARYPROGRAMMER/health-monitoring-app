@@ -70,12 +70,6 @@ class AppTheme {
       textTheme: textTheme,
       splashFactory: InkSparkle.splashFactory,
       extensions: [tokens],
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        },
-      ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
