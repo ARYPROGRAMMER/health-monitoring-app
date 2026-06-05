@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_tokens.dart';
+
+/// The Stealthera brand mark with an optional accent glow.
 class BrandMark extends StatelessWidget {
   const BrandMark({this.size = 72, this.showGlow = true, super.key});
 
@@ -8,25 +11,24 @@ class BrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final glowColor = Theme.of(context).colorScheme.primary;
-
+    final glow = AppTokens.of(context).accentColor;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * 0.24),
+        borderRadius: BorderRadius.circular(size * 0.26),
         boxShadow: showGlow
             ? [
                 BoxShadow(
-                  color: glowColor.withValues(alpha: 0.28),
-                  blurRadius: size * 0.46,
-                  offset: Offset(0, size * 0.16),
+                  color: glow.withValues(alpha: 0.32),
+                  blurRadius: size * 0.5,
+                  spreadRadius: -size * 0.08,
                 ),
               ]
             : null,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.24),
+        borderRadius: BorderRadius.circular(size * 0.26),
         child: Image.asset(
           'assets/brand/stealthera_mark.png',
           fit: BoxFit.cover,

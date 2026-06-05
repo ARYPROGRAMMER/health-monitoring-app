@@ -1,7 +1,7 @@
 name: health_monitoring_app
 description: Stealthera health monitoring companion app.
 publish_to: 'none'
-version: 1.0.0+1
+version: 4.0.0+7
 
 environment:
   sdk: ^3.10.7
@@ -14,7 +14,8 @@ dependencies:
   dio: ^5.9.2
   firebase_auth: ^6.5.1
   firebase_core: ^4.9.0
-  flutter_riverpod: ^3.3.1
+  flutter_bloc: ^9.1.0
+  equatable: ^2.0.7
   google_sign_in: ^7.2.0
   hive: ^2.2.3
   hive_flutter: ^1.1.0
@@ -23,6 +24,7 @@ dependencies:
   intl: ^0.20.2
   flutter_animate: ^4.5.2
   dio_smart_retry: ^7.0.1
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -33,3 +35,14 @@ flutter:
   uses-material-design: true
   assets:
     - assets/brand/stealthera_mark.png
+    - assets/illustrations/
+    - .env
+  fonts:
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk.ttf
+    - family: SpaceMono
+      fonts:
+        - asset: assets/fonts/SpaceMono-Regular.ttf
+        - asset: assets/fonts/SpaceMono-Bold.ttf
+          weight: 700

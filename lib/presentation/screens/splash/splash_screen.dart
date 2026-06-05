@@ -1,71 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
-import '../../widgets/animated_gradient_background.dart';
-import '../../widgets/brand_mark.dart';
+import '../../../core/widgets/app_background.dart';
+import '../../../core/widgets/brand_mark.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-  late final Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..forward();
-    _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
-    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
-      body: AnimatedGradientBackground(
+      body: AppBackground(
         child: Center(
-          child: FadeTransition(
-            opacity: _opacity,
-            child: ScaleTransition(
-              scale: _scale,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const BrandMark(size: 112),
-                  const SizedBox(height: 28),
-                  Text(
-                    'Stealthera',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Health signals, beautifully guarded',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const BrandMark(size: 108)
+                  .animate()
+                  .fadeIn(duration: 600.ms)
+                  .scale(begin: const Offset(0.85, 0.85), curve: Curves.easeOutBack),
+              const SizedBox(height: 26),
+              Text(
+                'Stealthera',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ).animate().fadeIn(delay: 200.ms, duration: 450.ms),
+              const SizedBox(height: 8),
+              Text(
+                'Health signals, quietly guarded',
+                style: theme.textTheme.bodyMedium,
+              ).animate().fadeIn(delay: 340.ms, duration: 450.ms),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: theme.colorScheme.primary,
+                ),
+              ).animate().fadeIn(delay: 500.ms),
+            ],
           ),
         ),
       ),

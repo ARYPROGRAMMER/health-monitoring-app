@@ -3,4 +3,6 @@ class CacheKeys {
   static const settings = 'settings';
   static const alerts = 'alerts';
   static const themeMode = 'themeMode';
+  static const accent = 'accent';
+  static const onboarded = 'onboarded';
 }

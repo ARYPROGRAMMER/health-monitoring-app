@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../core/config/app_config.dart';
+
 class BackendApiClient {
   BackendApiClient({required FirebaseAuth firebaseAuth, Dio? dio})
     : _firebaseAuth = firebaseAuth,
@@ -11,9 +13,9 @@ class BackendApiClient {
           dio ??
           Dio(
             BaseOptions(
-              baseUrl: _baseUrl,
-              connectTimeout: const Duration(seconds: 45),
-              receiveTimeout: const Duration(seconds: 45),
+              baseUrl: AppConfig.apiBaseUrl,
+              connectTimeout: AppConfig.requestTimeout,
+              receiveTimeout: AppConfig.requestTimeout,
             ),
           ) {
     _dio.interceptors.add(
@@ -67,18 +69,6 @@ class BackendApiClient {
         },
       ),
     );
-  }
-
-  static const _configuredBaseUrl = String.fromEnvironment(
-    'STEALTHERA_API_BASE_URL',
-    defaultValue: 'https://health-monitoring-app-hhiu.onrender.com/api',
-  );
-  static String get _baseUrl {
-    final trimmed = _configuredBaseUrl.endsWith('/')
-        ? _configuredBaseUrl.substring(0, _configuredBaseUrl.length - 1)
-        : _configuredBaseUrl;
-
-    return trimmed.endsWith('/api') ? trimmed : '$trimmed/api';
   }
 
   final FirebaseAuth _firebaseAuth;

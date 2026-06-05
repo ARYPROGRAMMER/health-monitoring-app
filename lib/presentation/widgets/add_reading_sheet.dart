@@ -1,53 +1,136 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/theme/app_tokens.dart';
+import '../../core/widgets/glow_card.dart';
 import '../../data/models/health_models.dart';
-import '../controllers/dashboard_controller.dart';
-import 'glass_panel.dart';
+import '../blocs/dashboard/dashboard_bloc.dart';
 
-class AddReadingSheet extends ConsumerStatefulWidget {
+class _Option {
+  const _Option({
+    required this.type,
+    required this.label,
+    required this.unit,
+    required this.icon,
+    required this.min,
+    required this.max,
+    required this.quick,
+  });
+
+  final String type;
+  final String label;
+  final String unit;
+  final IconData icon;
+  final double min;
+  final double max;
+  final List<double> quick;
+}
+
+const _options = [
+  _Option(type: 'heart_rate', label: 'Heart Rate', unit: 'bpm', icon: Icons.favorite_rounded, min: 30, max: 220, quick: [62, 78, 96, 124]),
+  _Option(type: 'spo2', label: 'SpO₂', unit: '%', icon: Icons.air_rounded, min: 70, max: 100, quick: [92, 95, 97, 99]),
+  _Option(type: 'sleep', label: 'Sleep', unit: 'hours', icon: Icons.nightlight_round, min: 0, max: 24, quick: [5.5, 7, 7.5, 8]),
+  _Option(type: 'activity', label: 'Activity', unit: 'steps', icon: Icons.directions_walk_rounded, min: 0, max: 100000, quick: [2500, 6000, 8000, 12000]),
+];
+
+class AddReadingSheet extends StatefulWidget {
   const AddReadingSheet({super.key});
 
   static Future<void> show(BuildContext context) {
+    final bloc = context.read<DashboardBloc>();
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const AddReadingSheet(),
+      builder: (_) => BlocProvider.value(
+        value: bloc,
+        child: const AddReadingSheet(),
+      ),
     );
   }
 
   @override
-  ConsumerState<AddReadingSheet> createState() => _AddReadingSheetState();
+  State<AddReadingSheet> createState() => _AddReadingSheetState();
 }
 
-class _AddReadingSheetState extends ConsumerState<AddReadingSheet> {
+class _AddReadingSheetState extends State<AddReadingSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _valueController = TextEditingController();
-  _ReadingOption _selected = _readingOptions.first;
-  bool _isSubmitting = false;
-  String? _errorMessage;
+  final _controller = TextEditingController();
+  _Option _selected = _options.first;
+  bool _submitting = false;
+  String? _error;
 
   @override
   void dispose() {
-    _valueController.dispose();
+    _controller.dispose();
     super.dispose();
+  }
+
+  String? _validate(String? raw) {
+    final value = double.tryParse(raw?.trim() ?? '');
+    if (value == null) return 'Enter a numeric value';
+    if (value < _selected.min || value > _selected.max) {
+      return '${_selected.label} must be ${_selected.min.round()}-${_selected.max.round()} ${_selected.unit}';
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    if (_formKey.currentState?.validate() != true) return;
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    final reading = HealthReadingModel(
+      type: _selected.type,
+      value: double.parse(_controller.text.trim()),
+      unit: _selected.unit,
+      recordedAt: DateTime.now(),
+    );
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await context.read<DashboardBloc>().syncReading(reading);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(content: Text('${_selected.label} synced to your timeline.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = _friendly(error));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  String _friendly(Object error) {
+    final message = error.toString();
+    if (message.contains('401') || message.contains('403')) {
+      return 'Your session needs a fresh sign-in before syncing.';
+    }
+    if (message.contains('SocketException') || message.contains('timeout')) {
+      return 'The sync service is not reachable right now.';
+    }
+    return 'Reading could not be synced. Please try again.';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = AppTokens.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return AnimatedPadding(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
       padding: EdgeInsets.fromLTRB(16, 12, 16, bottomInset + 16),
-      child: GlassPanel(
+      child: GlowCard(
+        glow: true,
+        radius: 28,
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-        borderRadius: 30,
         child: Form(
           key: _formKey,
           autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -61,147 +144,109 @@ class _AddReadingSheetState extends ConsumerState<AddReadingSheet> {
                     width: 44,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.18,
-                      ),
+                      color: tokens.textMuted.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Add Health Reading',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ),
-                    IconButton.filledTonal(
-                      tooltip: 'Close',
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 18),
                 Text(
-                  'Record a current measurement and Stealthera will update your timeline.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.4,
+                  'Add Health Reading',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children: _readingOptions.map((option) {
+                  children: _options.map((option) {
                     final selected = option == _selected;
-
                     return ChoiceChip(
                       showCheckmark: false,
                       selected: selected,
-                      onSelected: _isSubmitting
+                      onSelected: _submitting
                           ? null
                           : (_) => setState(() {
                               _selected = option;
-                              _valueController.clear();
-                              _errorMessage = null;
+                              _controller.clear();
+                              _error = null;
                             }),
-                      selectedColor: option.color.withValues(alpha: 0.18),
-                      backgroundColor: theme.colorScheme.surface.withValues(
-                        alpha: 0.62,
+                      selectedColor: tokens.accentColor.withValues(alpha: 0.2),
+                      backgroundColor: tokens.elevatedCard,
+                      side: BorderSide(
+                        color: selected ? tokens.accentColor : tokens.cardBorder,
                       ),
                       avatar: Icon(
                         option.icon,
                         size: 18,
-                        color: selected
-                            ? option.color
-                            : theme.colorScheme.onSurfaceVariant,
+                        color: selected ? tokens.accentColor : tokens.textMuted,
                       ),
-                      label: Text(
-                        option.label,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: selected ? option.color : null,
-                        ),
-                      ),
+                      label: Text(option.label),
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 TextFormField(
-                  controller: _valueController,
-                  enabled: !_isSubmitting,
+                  controller: _controller,
+                  enabled: !_submitting,
                   autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  textInputAction: TextInputAction.done,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                   ],
                   decoration: InputDecoration(
-                    labelText: _selected.inputLabel,
+                    labelText: _selected.label,
                     suffixText: _selected.unit,
-                    prefixIcon: Icon(_selected.icon, color: _selected.color),
+                    prefixIcon: Icon(_selected.icon),
                   ),
-                  validator: _validateValue,
+                  validator: _validate,
                   onFieldSubmitted: (_) => _submit(),
                 ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _selected.quickValues.map((value) {
-                    final label = _formatQuickValue(value);
-
+                  children: _selected.quick.map((value) {
+                    final label = value == value.roundToDouble()
+                        ? value.round().toString()
+                        : value.toStringAsFixed(1);
                     return ActionChip(
-                      avatar: Icon(_selected.icon, size: 16),
-                      label: Text(label),
-                      onPressed: _isSubmitting
+                      label: Text('$label ${_selected.unit}'),
+                      backgroundColor: tokens.elevatedCard,
+                      side: BorderSide(color: tokens.cardBorder),
+                      onPressed: _submitting
                           ? null
                           : () {
-                              _valueController.text = value.toString();
+                              _controller.text = value.toString();
                               _formKey.currentState?.validate();
                             },
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 16),
-                _ReadingContext(option: _selected),
-                if (_errorMessage != null) ...[
+                if (_error != null) ...[
                   const SizedBox(height: 14),
                   Text(
-                    _errorMessage!,
+                    _error!,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.error,
-                      fontWeight: FontWeight.w700,
+                      color: tokens.danger,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
                 const SizedBox(height: 18),
                 ElevatedButton.icon(
-                  onPressed: _isSubmitting ? null : _submit,
-                  icon: _isSubmitting
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
+                  onPressed: _submitting ? null : _submit,
+                  icon: _submitting
+                      ? const SizedBox.square(
+                          dimension: 18,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: theme.colorScheme.onPrimary,
+                            strokeWidth: 2.2,
+                            color: Color(0xFF15161C),
                           ),
                         )
                       : const Icon(Icons.cloud_sync_rounded),
-                  label: Text(
-                    _isSubmitting ? 'Syncing reading' : 'Sync Reading',
-                  ),
+                  label: Text(_submitting ? 'Syncing…' : 'Sync reading'),
                 ),
               ],
             ),
@@ -210,207 +255,4 @@ class _AddReadingSheetState extends ConsumerState<AddReadingSheet> {
       ),
     );
   }
-
-  String? _validateValue(String? rawValue) {
-    final value = double.tryParse(rawValue?.trim() ?? '');
-
-    if (value == null) {
-      return 'Enter a numeric value';
-    }
-
-    if (value < _selected.min || value > _selected.max) {
-      return '${_selected.label} must be ${_formatRange(_selected.min)}-${_formatRange(_selected.max)} ${_selected.unit}';
-    }
-
-    return null;
-  }
-
-  Future<void> _submit() async {
-    FocusScope.of(context).unfocus();
-
-    if (_formKey.currentState?.validate() != true) {
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-      _errorMessage = null;
-    });
-
-    final value = double.parse(_valueController.text.trim());
-    final reading = HealthReadingModel(
-      type: _selected.type,
-      value: value,
-      unit: _selected.unit,
-      recordedAt: DateTime.now(),
-    );
-
-    try {
-      await ref.read(dashboardControllerProvider.notifier).syncReading(reading);
-
-      if (!mounted) {
-        return;
-      }
-
-      final messenger = ScaffoldMessenger.of(context);
-      Navigator.of(context).pop();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('${_selected.label} synced to your health timeline.'),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() => _errorMessage = _friendlyError(error));
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
-
-  String _friendlyError(Object error) {
-    final message = error.toString();
-
-    if (message.contains('401') || message.contains('403')) {
-      return 'Your session needs a fresh sign-in before syncing readings.';
-    }
-
-    if (message.contains('SocketException') || message.contains('timeout')) {
-      return 'The sync service is not reachable. Try again when the service is online.';
-    }
-
-    return 'Reading could not be synced. Please try again.';
-  }
-
-  String _formatQuickValue(double value) {
-    final formatted = value == value.roundToDouble()
-        ? value.round().toString()
-        : value.toStringAsFixed(1);
-    return '$formatted ${_selected.unit}';
-  }
-
-  static String _formatRange(double value) {
-    if (value == value.roundToDouble()) {
-      return value.round().toString();
-    }
-
-    return value.toStringAsFixed(1);
-  }
 }
-
-class _ReadingContext extends StatelessWidget {
-  const _ReadingContext({required this.option});
-
-  final _ReadingOption option;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: option.color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: option.color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          Icon(option.icon, color: option.color),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              option.context,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReadingOption {
-  const _ReadingOption({
-    required this.type,
-    required this.label,
-    required this.inputLabel,
-    required this.unit,
-    required this.icon,
-    required this.color,
-    required this.min,
-    required this.max,
-    required this.quickValues,
-    required this.context,
-  });
-
-  final String type;
-  final String label;
-  final String inputLabel;
-  final String unit;
-  final IconData icon;
-  final Color color;
-  final double min;
-  final double max;
-  final List<double> quickValues;
-  final String context;
-}
-
-const _readingOptions = [
-  _ReadingOption(
-    type: 'heart_rate',
-    label: 'Heart Rate',
-    inputLabel: 'Heart rate',
-    unit: 'bpm',
-    icon: Icons.favorite_rounded,
-    color: Color(0xFFFB7185),
-    min: 30,
-    max: 220,
-    quickValues: [62, 78, 96, 124],
-    context: 'Compared with your personalized heart rate range for alerting.',
-  ),
-  _ReadingOption(
-    type: 'spo2',
-    label: 'SpO2',
-    inputLabel: 'Oxygen saturation',
-    unit: '%',
-    icon: Icons.air_rounded,
-    color: Color(0xFF2DD4BF),
-    min: 70,
-    max: 100,
-    quickValues: [92, 95, 97, 99],
-    context: 'Checked against your minimum SpO2 threshold and alert history.',
-  ),
-  _ReadingOption(
-    type: 'sleep',
-    label: 'Sleep',
-    inputLabel: 'Sleep duration',
-    unit: 'hours',
-    icon: Icons.nightlight_round,
-    color: Color(0xFF60A5FA),
-    min: 0,
-    max: 24,
-    quickValues: [5.5, 7, 7.5, 8],
-    context: 'Used for sleep trend charts and target comparison insights.',
-  ),
-  _ReadingOption(
-    type: 'activity',
-    label: 'Activity',
-    inputLabel: 'Step count',
-    unit: 'steps',
-    icon: Icons.directions_walk_rounded,
-    color: Color(0xFFF59E0B),
-    min: 0,
-    max: 100000,
-    quickValues: [2500, 6000, 8000, 12000],
-    context: 'Rolled into activity charts and daily goal progress.',
-  ),
-];
