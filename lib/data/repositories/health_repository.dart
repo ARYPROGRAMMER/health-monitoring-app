@@ -1,86 +1,79 @@
 import '../../core/constants/cache_keys.dart';
-import '../models/health_models.dart';
-import '../services/backend_api_client.dart';
+import '../models/device_models.dart';
 import '../services/cache_service.dart';
+import '../services/realtime_service.dart';
+import '../services/stealthera_api.dart';
 
+/// Single entry point the BLoC layer uses to read the Stealthera backend.
+/// Wraps the typed [StealtheraApi], persists the active-device selection and an
+/// offline copy of the fleet list, and mints realtime SSE channels.
 class HealthRepository {
-  HealthRepository({
-    required BackendApiClient apiClient,
-    required CacheService cacheService,
-  }) : _apiClient = apiClient,
-       _cacheService = cacheService;
+  HealthRepository({required StealtheraApi api, required CacheService cache})
+      : _api = api,
+        _cache = cache;
 
-  final BackendApiClient _apiClient;
-  final CacheService _cacheService;
+  final StealtheraApi _api;
+  final CacheService _cache;
 
-  DashboardSummaryModel? cachedDashboard() {
-    final json = _cacheService.readJson(CacheKeys.dashboard);
+  // ---- Active device session --------------------------------------------
 
-    if (json == null) {
-      return null;
+  String? get activeDeviceId => _cache.readString(CacheKeys.activeDevice);
+
+  Future<void> setActiveDevice(String deviceId) =>
+      _cache.writeString(CacheKeys.activeDevice, deviceId);
+
+  // ---- Fleet -------------------------------------------------------------
+
+  Future<List<DeviceRow>> devices({String? search}) async {
+    final rows = await _api.healthData(search: search);
+    if (search == null || search.isEmpty) {
+      await _cache.writeJsonList(
+        CacheKeys.devices,
+        rows.map((r) => r.toJson()).toList(),
+      );
     }
-
-    return DashboardSummaryModel.fromJson(json).copyWith(isOffline: true);
+    return rows;
   }
 
-  HealthSettingsModel cachedSettings() {
-    final json = _cacheService.readJson(CacheKeys.settings);
+  List<DeviceRow> cachedDevices() =>
+      _cache.readJsonList(CacheKeys.devices).map(DeviceRow.fromJson).toList();
 
-    if (json == null) {
-      return HealthSettingsModel.defaults;
-    }
+  Future<FleetStats> stats() => _api.stats();
 
-    return HealthSettingsModel.fromJson(json);
-  }
+  Future<List<AlarmRow>> alarms({String? deviceId, String? type, int limit = 200}) =>
+      _api.alarms(deviceId: deviceId, type: type, limit: limit);
 
-  Future<DashboardSummaryModel> fetchDashboard() async {
-    final data = await _apiClient.getDashboard();
-    final summary = DashboardSummaryModel.fromJson(data);
-    await _cacheDashboard(summary);
+  Future<ApiHealth> apiHealth() => _api.health();
 
-    return summary;
-  }
+  // ---- Device ------------------------------------------------------------
 
-  Future<DashboardSummaryModel> syncReading(HealthReadingModel reading) async {
-    final data = await _apiClient.syncReadings([reading.toJson()]);
-    final summary = DashboardSummaryModel.fromJson(data);
-    await _cacheDashboard(summary);
+  Future<DeviceSummary?> summary(String id) => _api.deviceSummary(id);
+  Future<DeviceInfo> info(String id) => _api.deviceInfo(id);
+  Future<Vitals> vitals(String id, [SeriesQuery q = SeriesQuery.latest]) =>
+      _api.vitals(id, q);
+  Future<Wellness> wellness(String id, [SeriesQuery q = SeriesQuery.latest]) =>
+      _api.wellness(id, q);
+  Future<Activity> activity(String id, [SeriesQuery q = SeriesQuery.latest]) =>
+      _api.activity(id, q);
+  Future<MetricSeries> metricSeries(String id, String key,
+          [SeriesQuery q = SeriesQuery.latest]) =>
+      _api.metricSeries(id, key, q);
+  Future<BodyTempSeries> bodyTemp(String id, [SeriesQuery q = SeriesQuery.latest]) =>
+      _api.bodyTemp(id, q);
+  Future<BloodPressureSeries> bloodPressure(String id,
+          [SeriesQuery q = SeriesQuery.latest]) =>
+      _api.bloodPressure(id, q);
+  Future<SosData> sos(String id, [SeriesQuery q = SeriesQuery.latest]) =>
+      _api.sos(id, q);
+  Future<LocationTrack> location(String id, [SeriesQuery q = SeriesQuery.latest]) =>
+      _api.location(id, q);
+  Future<EcgData> ecg(String id, [SeriesQuery q = SeriesQuery.latest]) =>
+      _api.ecg(id, q);
+  Future<List<AlarmRow>> deviceAlarms(String id, {String? type, int limit = 200}) =>
+      _api.deviceAlarms(id, type: type, limit: limit);
 
-    return summary;
-  }
+  // ---- Realtime ----------------------------------------------------------
 
-  Future<HealthSettingsModel> updateSettings(
-    HealthSettingsModel settings,
-  ) async {
-    final data = await _apiClient.updateSettings(settings.toJson());
-    final updated = HealthSettingsModel.fromJson(data);
-    await _cacheService.writeJson(CacheKeys.settings, updated.toJson());
-
-    return updated;
-  }
-
-  Future<List<HealthAlertModel>> fetchAlerts() async {
-    final data = await _apiClient.getAlerts();
-    await _cacheService.writeJsonList(CacheKeys.alerts, data);
-
-    return data.map(HealthAlertModel.fromJson).toList();
-  }
-
-  Future<HealthAlertModel> resolveAlert(String alertId) async {
-    final data = await _apiClient.updateAlertStatus(alertId, 'resolved');
-
-    return HealthAlertModel.fromJson(data);
-  }
-
-  Future<void> _cacheDashboard(DashboardSummaryModel summary) async {
-    await _cacheService.writeJson(CacheKeys.dashboard, summary.toJson());
-    await _cacheService.writeJson(
-      CacheKeys.settings,
-      summary.settings.toJson(),
-    );
-    await _cacheService.writeJsonList(
-      CacheKeys.alerts,
-      summary.activeAlerts.map((alert) => alert.toJson()).toList(),
-    );
-  }
+  RealtimeChannel deviceChannel(String id) => RealtimeChannel(deviceId: id);
+  RealtimeChannel fleetChannel() => RealtimeChannel();
 }

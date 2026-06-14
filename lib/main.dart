@@ -15,9 +15,9 @@ import 'app/app.dart';
 import 'core/config/app_config.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/health_repository.dart';
-import 'data/services/backend_api_client.dart';
 import 'data/services/cache_service.dart';
 import 'data/services/notification_service.dart';
+import 'data/services/stealthera_api.dart';
 import 'firebase_options.dart';
 import 'presentation/blocs/auth/auth_bloc.dart';
 import 'presentation/blocs/profile/profile_cubit.dart';
@@ -107,8 +107,8 @@ class _StealtheraRootState extends State<StealtheraRoot> {
       googleSignIn: GoogleSignIn.instance,
     );
     _healthRepository = HealthRepository(
-      apiClient: BackendApiClient(firebaseAuth: firebaseAuth),
-      cacheService: _cacheService,
+      api: StealtheraApi(),
+      cache: _cacheService,
     );
     if (AppConfig.verboseLogging) {
       developer.log('API base: ${AppConfig.apiBaseUrl}', name: 'Stealthera');

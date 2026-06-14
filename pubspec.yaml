@@ -25,6 +25,9 @@ dependencies:
   flutter_animate: ^4.5.2
   dio_smart_retry: ^7.0.1
   flutter_dotenv: ^5.2.1
+  url_launcher: ^6.3.2
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
 
 dev_dependencies:
   flutter_test:

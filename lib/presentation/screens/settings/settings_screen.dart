@@ -2,55 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_accent.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/glow_card.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/section_header.dart';
-import '../../../data/models/health_models.dart';
+import '../../../data/models/device_models.dart';
+import '../../../data/repositories/health_repository.dart';
 import '../../blocs/auth/auth_bloc.dart';
-import '../../blocs/dashboard/dashboard_bloc.dart';
+import '../../blocs/common/load_cubit.dart';
+import '../../blocs/devices/devices_bloc.dart';
 import '../../blocs/profile/profile_cubit.dart';
 import '../../blocs/theme/theme_cubit.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) =>
+          LoadCubit<ApiHealth>(() => context.read<HealthRepository>().apiHealth())
+            ..load(),
+      child: const _SettingsView(),
+    );
+  }
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  late HealthSettingsModel _draft;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _draft = context.read<DashboardBloc>().state.summary?.settings ??
-        HealthSettingsModel.defaults;
-  }
-
-  Future<void> _save() async {
-    setState(() => _saving = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final isDark = context.read<ThemeCubit>().state.isDark;
-    try {
-      await context.read<DashboardBloc>().saveSettings(
-        _draft.copyWith(darkMode: isDark),
-      );
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Thresholds saved.')),
-      );
-    } catch (_) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Could not save settings. Try again.')),
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
+class _SettingsView extends StatelessWidget {
+  const _SettingsView();
 
   @override
   Widget build(BuildContext context) {
@@ -61,22 +43,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text(
           'Settings',
           style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 18),
-        _ProfileCard(),
+        const _ProfileCard(),
         const SizedBox(height: 16),
-        _AppearanceCard(),
+        const _AppearanceCard(),
         const SizedBox(height: 16),
-        _ThresholdsCard(
-          draft: _draft,
-          onChanged: (next) => setState(() => _draft = next),
-          saving: _saving,
-          onSave: _save,
-        ),
+        const _BackendCard(),
         const SizedBox(height: 16),
-        _ApiTokenCard(),
+        const _ActiveDeviceCard(),
         const SizedBox(height: 16),
         GlowCard(
           child: Column(
@@ -99,6 +76,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 class _ProfileCard extends StatelessWidget {
+  const _ProfileCard();
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -114,6 +93,7 @@ class _ProfileCard extends StatelessWidget {
                 children: [
                   Text(
                     state.displayName,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -121,8 +101,8 @@ class _ProfileCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     state.profile?.email ?? '',
-                    style: theme.textTheme.bodyMedium,
                     overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -135,6 +115,8 @@ class _ProfileCard extends StatelessWidget {
 }
 
 class _AppearanceCard extends StatelessWidget {
+  const _AppearanceCard();
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ThemeCubit, ThemeState>(
@@ -161,16 +143,16 @@ class _AppearanceCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              Row(
+              Wrap(
+                spacing: 14,
+                runSpacing: 12,
                 children: [
-                  for (final accent in AppAccent.values) ...[
+                  for (final accent in AppAccent.values)
                     _Swatch(
                       accent: accent,
                       selected: accent == themeState.accent,
                       onTap: () => cubit.setAccent(accent),
                     ),
-                    const SizedBox(width: 14),
-                  ],
                 ],
               ),
             ],
@@ -181,8 +163,140 @@ class _AppearanceCard extends StatelessWidget {
   }
 }
 
+class _BackendCard extends StatelessWidget {
+  const _BackendCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<LoadCubit<ApiHealth>, Async<ApiHealth>>(
+      builder: (context, state) {
+        final health = state.data;
+        final tokens = AppTokens.of(context);
+        final ok = health?.ok == true;
+        return GlowCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(child: SectionHeader('Backend')),
+                  IconButton(
+                    tooltip: 'Refresh backend status',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      context.read<LoadCubit<ApiHealth>>().load();
+                    },
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _InfoLine(label: 'API', value: AppConfig.apiBaseUrl),
+              _InfoLine(label: 'Timezone', value: AppConfig.timezone),
+              _InfoLine(
+                label: 'Health',
+                value: state.isLoading
+                    ? 'Checking...'
+                    : state.error ?? (ok ? 'OK' : health?.status ?? 'Unknown'),
+                color: ok ? tokens.success : tokens.warning,
+              ),
+              _InfoLine(
+                label: 'Mongo',
+                value: health?.mongo ?? '--',
+                color: health?.mongo == 'up' ? tokens.success : null,
+              ),
+              _InfoLine(
+                label: 'Realtime',
+                value: health?.realtime ?? '--',
+                color: health?.realtimeConnected == true
+                    ? tokens.success
+                    : tokens.warning,
+              ),
+              _InfoLine(
+                label: 'SSE clients',
+                value: health?.sseClients.toString() ?? '--',
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ActiveDeviceCard extends StatelessWidget {
+  const _ActiveDeviceCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<DevicesBloc, DevicesState>(
+      buildWhen: (p, n) =>
+          p.activeDeviceId != n.activeDeviceId || p.devices != n.devices,
+      builder: (context, state) {
+        final device = state.activeDevice;
+        return GlowCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionHeader('Active Device'),
+              const SizedBox(height: 12),
+              _InfoLine(label: 'Device', value: device?.displayName ?? '--'),
+              _InfoLine(label: 'IMEI', value: state.activeDeviceId ?? '--'),
+              _InfoLine(label: 'Status', value: device?.status ?? '--'),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _InfoLine extends StatelessWidget {
+  const _InfoLine({required this.label, required this.value, this.color});
+
+  final String label;
+  final String value;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppTokens.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 86,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: tokens.textMuted,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value.isEmpty ? '--' : value,
+              style: AppTypography.monoStyle(
+                12,
+                FontWeight.w700,
+                color: color ?? Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Swatch extends StatelessWidget {
-  const _Swatch({required this.accent, required this.selected, required this.onTap});
+  const _Swatch({
+    required this.accent,
+    required this.selected,
+    required this.onTap,
+  });
 
   final AppAccent accent;
   final bool selected;
@@ -216,7 +330,11 @@ class _Swatch extends StatelessWidget {
                   : null,
             ),
             child: selected
-                ? const Icon(Icons.check_rounded, size: 20, color: Color(0xFF15161C))
+                ? const Icon(
+                    Icons.check_rounded,
+                    size: 20,
+                    color: Color(0xFF15161C),
+                  )
                 : null,
           ),
           const SizedBox(height: 6),
@@ -230,140 +348,6 @@ class _Swatch extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ThresholdsCard extends StatelessWidget {
-  const _ThresholdsCard({
-    required this.draft,
-    required this.onChanged,
-    required this.saving,
-    required this.onSave,
-  });
-
-  final HealthSettingsModel draft;
-  final ValueChanged<HealthSettingsModel> onChanged;
-  final bool saving;
-  final Future<void> Function() onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlowCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionHeader('Personal Thresholds'),
-          const SizedBox(height: 10),
-          _Slider(
-            label: 'Min SpO₂',
-            valueLabel: '${draft.spo2Min.round()}%',
-            value: draft.spo2Min,
-            min: 80,
-            max: 100,
-            divisions: 20,
-            onChanged: (v) => onChanged(draft.copyWith(spo2Min: v.roundToDouble())),
-          ),
-          _Slider(
-            label: 'Max heart rate',
-            valueLabel: '${draft.heartRateMax} bpm',
-            value: draft.heartRateMax.toDouble(),
-            min: 80,
-            max: 220,
-            divisions: 140,
-            onChanged: (v) => onChanged(draft.copyWith(heartRateMax: v.round())),
-          ),
-          _Slider(
-            label: 'Daily steps',
-            valueLabel: '${draft.dailyStepsGoal}',
-            value: draft.dailyStepsGoal.toDouble(),
-            min: 1000,
-            max: 50000,
-            divisions: 49,
-            onChanged: (v) => onChanged(draft.copyWith(dailyStepsGoal: v.round())),
-          ),
-          _Slider(
-            label: 'Sleep target',
-            valueLabel: '${draft.sleepTargetHours.toStringAsFixed(1)} h',
-            value: draft.sleepTargetHours,
-            min: 4,
-            max: 12,
-            divisions: 16,
-            onChanged: (v) => onChanged(draft.copyWith(sleepTargetHours: v)),
-          ),
-          const SizedBox(height: 6),
-          _SwitchRow(
-            label: 'Local health notifications',
-            value: draft.notificationsEnabled,
-            onChanged: (v) => onChanged(draft.copyWith(notificationsEnabled: v)),
-          ),
-          const SizedBox(height: 14),
-          ElevatedButton.icon(
-            onPressed: saving ? null : onSave,
-            icon: saving
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: Color(0xFF15161C),
-                    ),
-                  )
-                : const Icon(Icons.save_rounded),
-            label: Text(saving ? 'Saving…' : 'Save thresholds'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Slider extends StatelessWidget {
-  const _Slider({
-    required this.label,
-    required this.valueLabel,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String valueLabel;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-            ),
-            Text(
-              valueLabel,
-              style: AppTypography.monoStyle(
-                13,
-                FontWeight.w700,
-                color: AppTokens.of(context).accentColor,
-              ),
-            ),
-          ],
-        ),
-        Slider(
-          value: value.clamp(min, max),
-          min: min,
-          max: max,
-          divisions: divisions,
-          onChanged: onChanged,
-        ),
-      ],
     );
   }
 }
@@ -389,78 +373,12 @@ class _SwitchRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.w500,
-              ),
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
             ),
           ),
           Switch(value: value, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
-class _ApiTokenCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GlowCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionHeader('Developer API Token'),
-          const SizedBox(height: 4),
-          Text(
-            'Use this Firebase ID token to test API endpoints via Swagger.',
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () => _showToken(context),
-            icon: const Icon(Icons.vpn_key_rounded),
-            label: const Text('View & copy token'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showToken(BuildContext context) async {
-    final theme = Theme.of(context);
-    final token = await context.read<AuthBloc>().idToken();
-    if (!context.mounted) return;
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Your API Token'),
-        content: SingleChildScrollView(
-          child: SelectableText(
-            token ?? 'Unable to retrieve token.',
-            style: AppTypography.monoStyle(
-              11,
-              FontWeight.w400,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ),
-        actions: [
-          if (token != null)
-            TextButton.icon(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: token));
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Token copied to clipboard')),
-                );
-              },
-              icon: const Icon(Icons.content_copy_rounded, size: 18),
-              label: const Text('Copy'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
         ],
       ),
     );

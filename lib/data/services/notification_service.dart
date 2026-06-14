@@ -1,6 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import '../models/health_models.dart';
+import '../models/device_models.dart';
 
 class NotificationService {
   NotificationService._();
@@ -24,22 +24,23 @@ class NotificationService {
         ?.requestNotificationsPermission();
   }
 
-  Future<void> showHealthAlerts(List<HealthAlertModel> alerts) async {
-    final activeAlerts = alerts
-        .where((alert) => alert.isActive && alert.isNotificationWorthy)
-        .toList();
+  Future<void> showAlarms(List<AlarmRow> alarms) async {
+    final important = alarms.where((alarm) => alarm.isSos || alarm.isFall);
 
-    for (final alert in activeAlerts) {
-      if (_shownAlertIds.contains(alert.id)) {
+    for (final alarm in important) {
+      final key = alarm.id.isEmpty ? '${alarm.deviceId}-${alarm.time}' : alarm.id;
+      if (_shownAlertIds.contains(key)) {
         continue;
       }
 
-      _shownAlertIds.add(alert.id);
+      _shownAlertIds.add(key);
       try {
         await _plugin.show(
-          id: alert.id.hashCode.abs(),
-          title: alert.title,
-          body: alert.message,
+          id: key.hashCode.abs(),
+          title: alarm.isSos ? 'SOS alert' : 'Fall alert',
+          body: alarm.content.isEmpty
+              ? '${alarm.deviceId} reported ${alarm.type}'
+              : alarm.content,
           notificationDetails: const NotificationDetails(
             android: AndroidNotificationDetails(
               'stealthera_health_alerts',

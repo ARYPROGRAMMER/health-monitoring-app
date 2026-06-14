@@ -1,8 +1,6 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/theme/app_tokens.dart';
@@ -10,420 +8,272 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/glow_card.dart';
-import '../../../core/widgets/metric_illustration.dart';
-import '../../../core/widgets/profile_avatar.dart';
-import '../../../core/widgets/progress_metric_row.dart';
 import '../../../core/widgets/range_toggle.dart';
 import '../../../core/widgets/section_header.dart';
-import '../../../core/widgets/signature_painters.dart';
 import '../../../core/widgets/state_views.dart';
-import '../../../data/models/health_models.dart';
-import '../../blocs/dashboard/dashboard_bloc.dart';
-import '../../blocs/profile/profile_cubit.dart';
-import 'metric_kind.dart';
+import '../../../data/models/device_models.dart';
+import '../../../data/models/metric_catalog.dart';
+import '../../../data/repositories/health_repository.dart';
+import '../../blocs/metric_detail/metric_detail_bloc.dart';
 
-class MetricDetailScreen extends StatefulWidget {
-  const MetricDetailScreen({required this.kind, super.key});
+class MetricDetailScreen extends StatelessWidget {
+  const MetricDetailScreen({required this.spec, super.key});
 
-  final MetricKind kind;
+  final MetricSpec spec;
 
-  /// Opens the detail screen while forwarding the existing [DashboardBloc].
-  static void open(BuildContext context, MetricKind kind) {
-    final bloc = context.read<DashboardBloc>();
-    final profile = context.read<ProfileCubit>();
+  static void open(BuildContext context, String deviceId, MetricSpec spec) {
+    final repo = context.read<HealthRepository>();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            BlocProvider.value(value: bloc),
-            BlocProvider.value(value: profile),
-          ],
-          child: MetricDetailScreen(kind: kind),
+        builder: (_) => BlocProvider(
+          create: (_) => MetricDetailBloc(
+            repository: repo,
+            deviceId: deviceId,
+            spec: spec,
+          )..add(const MetricStarted()),
+          child: MetricDetailScreen(spec: spec),
         ),
       ),
     );
   }
 
-  @override
-  State<MetricDetailScreen> createState() => _MetricDetailScreenState();
-}
-
-class _MetricDetailScreenState extends State<MetricDetailScreen> {
-  int _range = 0; // 0 = Day, 1 = Week
-
-  MetricKind get kind => widget.kind;
+  Future<void> _refresh(BuildContext context) async {
+    HapticFeedback.lightImpact();
+    final bloc = context.read<MetricDetailBloc>();
+    bloc.add(const MetricRefreshed());
+    await bloc.stream
+        .firstWhere((s) => s.status != MetricStatus.loading)
+        .timeout(const Duration(seconds: 8), onTimeout: () {
+      return bloc.state;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: AppBackground(
         child: SafeArea(
-          child: BlocBuilder<DashboardBloc, DashboardState>(
+          bottom: false,
+          child: BlocBuilder<MetricDetailBloc, MetricDetailState>(
             builder: (context, state) {
-              final summary = state.summary;
-              if (summary == null) return const LoadingView();
-              return _buildContent(context, summary);
+              return RefreshIndicator(
+                color: spec.color,
+                onRefresh: () => _refresh(context),
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+                  children: [
+                    _TopBar(title: spec.title),
+                    const SizedBox(height: 18),
+                    if (state.status == MetricStatus.loading &&
+                        state.series == null &&
+                        state.bloodPressure == null)
+                      const SizedBox(height: 420, child: LoadingView())
+                    else if (state.status == MetricStatus.failure)
+                      ErrorView(
+                        message: state.errorMessage ?? 'Unable to load metric.',
+                        onRetry: () => context
+                            .read<MetricDetailBloc>()
+                            .add(const MetricRefreshed()),
+                      )
+                    else ...[
+                      _Hero(spec: spec, state: state),
+                      const SizedBox(height: 18),
+                      _RangeChooser(state: state),
+                      const SizedBox(height: 18),
+                      _Stats(spec: spec, state: state),
+                      const SizedBox(height: 20),
+                      const SectionHeader('Series'),
+                      const SizedBox(height: 12),
+                      _Chart(spec: spec, state: state),
+                      const SizedBox(height: 20),
+                      _Warnings(spec: spec, state: state),
+                    ],
+                  ],
+                ),
+              );
             },
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildContent(BuildContext context, DashboardSummaryModel summary) {
-    final theme = Theme.of(context);
-    final tokens = AppTokens.of(context);
-    final trend = kind.trend(summary);
-    final values = trend.map((p) => p.value).toList();
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.title});
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
       children: [
-        _TopBar(),
-        const SizedBox(height: 18),
-        // Hero: big number + unit + illustration
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    kind.display(summary),
-                    style: AppTypography.hero(theme.colorScheme.onSurface),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    kind.unit,
-                    style: AppTypography.monoStyle(
-                      15,
-                      FontWeight.w400,
-                      color: tokens.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-            MetricIllustration(name: kind.illustration, height: 116),
-          ],
+        IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back_rounded),
         ),
-        const SizedBox(height: 22),
-        _SignatureStrip(kind: kind),
-        const SizedBox(height: 22),
-        ..._statRows(summary, values),
-        const SizedBox(height: 18),
-        Center(
-          child: RangeToggle(
-            index: _range,
-            onChanged: (i) => setState(() => _range = i),
+        Expanded(
+          child: Text(
+            title,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ),
-        const SizedBox(height: 22),
-        ..._secondary(context, summary, values),
-        const SizedBox(height: 20),
-        _TrendCard(kind: kind, points: _ranged(trend)),
-        const SizedBox(height: 20),
-        _Insights(summary: summary, kind: kind),
       ],
     );
   }
+}
 
-  List<TrendPointModel> _ranged(List<TrendPointModel> trend) {
-    if (_range == 0 && trend.length > 8) {
-      return trend.sublist(trend.length - 8);
-    }
-    return trend;
-  }
+class _Hero extends StatelessWidget {
+  const _Hero({required this.spec, required this.state});
 
-  // --- Stat rows -----------------------------------------------------------
+  final MetricSpec spec;
+  final MetricDetailState state;
 
-  List<Widget> _statRows(DashboardSummaryModel summary, List<double> values) {
-    final rows = <(String, String)>[];
-    switch (kind) {
-      case MetricKind.heart:
-        rows.add(('Highest Heart Rate', _max(values)));
-        rows.add(('Lowest Heart Rate', _min(values)));
-      case MetricKind.steps:
-        rows.add(('Steps Taken Yesterday', _yesterday(summary, values)));
-        rows.add(('Average Steps Count', _avg(values)));
-      case MetricKind.spo2:
-        rows.add(('Highest SpO₂', _max(values)));
-        rows.add(('Lowest SpO₂', _min(values)));
-      case MetricKind.calories:
-        rows.add(('Calories Consumed', '0'));
-        rows.add(('Net Calories', 'Not Available'));
-    }
-    return [
-      for (final row in rows) ...[
-        _StatRow(label: row.$1, value: row.$2),
-        const SizedBox(height: 14),
-      ],
-    ];
-  }
-
-  // --- Secondary, metric-specific section ---------------------------------
-
-  List<Widget> _secondary(
-    BuildContext context,
-    DashboardSummaryModel summary,
-    List<double> values,
-  ) {
-    switch (kind) {
-      case MetricKind.heart:
-        final hrv = _hrv(values);
-        return [
-          ProgressMetricRow(
-            icon: Icons.monitor_heart_rounded,
-            label: 'Heart Rate Variability',
-            progress: hrv / 120,
-            trailing: values.isEmpty ? '--' : '$hrv ms',
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppTokens.of(context);
+    final value = _heroValue(spec, state);
+    return GlowCard(
+      glow: state.isLive,
+      borderColor: spec.color.withValues(alpha: 0.42),
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: spec.color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(spec.icon, color: spec.color, size: 34),
           ),
-          const SizedBox(height: 14),
-          ProgressMetricRow(
-            icon: Icons.self_improvement_rounded,
-            label: 'Stress level',
-            progress: _stressProgress(summary),
-            trailing: _stressLabel(summary),
-          ),
-        ];
-      case MetricKind.steps:
-        final goal = summary.settings.dailyStepsGoal;
-        final value = summary.activity?.value ?? 0;
-        return [
-          ProgressMetricRow(
-            icon: Icons.emoji_events_rounded,
-            label: "Today's Goal",
-            progress: goal == 0 ? 0 : value / goal,
-            trailing: '$goal',
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniCard(
-                  title: "Yesterday's Count",
-                  value: _yesterday(summary, values),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: _MiniCard(
-                  title: 'Achievement Earned',
-                  value: 'See Your Badges',
-                  italic: true,
-                ),
-              ),
-            ],
-          ),
-        ];
-      case MetricKind.spo2:
-        return [
-          const ProgressMetricRow(
-            icon: Icons.air_rounded,
-            label: 'Air Quality',
-            progress: 0,
-            trailing: 'N/A',
-          ),
-          const SizedBox(height: 14),
-          const _MiniCard(title: 'Altitude (from sea level)', value: '—'),
-        ];
-      case MetricKind.calories:
-        return [
-          GlowCard(
-            color: AppTokens.of(context).elevatedCard,
-            padding: const EdgeInsets.all(8),
-            radius: 16,
-            onTap: () => _comingSoon(context, 'Diet plans'),
-            child: Row(
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Choose Your Diet Plan',
-                    style: AppTypography.monoStyle(
-                      13,
-                      FontWeight.w400,
-                      color: Theme.of(context).colorScheme.onSurface,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (state.isLive)
+                      _Chip(
+                        icon: Icons.bolt_rounded,
+                        label: 'Live',
+                        color: tokens.success,
+                      ),
+                    _Chip(
+                      icon: Icons.timeline_rounded,
+                      label: state.range.label,
+                      color: spec.color,
                     ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  value,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.monoStyle(
+                    32,
+                    FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-                Container(
-                  width: 44,
-                  height: 36,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppTokens.of(context).accentColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 20,
-                    color: Color(0xFF15161C),
-                  ),
+                const SizedBox(height: 3),
+                Text(
+                  spec.unit.isEmpty ? spec.title : spec.unit,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: tokens.textMuted,
+                      ),
                 ),
               ],
             ),
           ),
-        ];
-    }
-  }
-
-  void _comingSoon(BuildContext context, String what) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('$what are coming soon.')));
-  }
-
-  // --- Derived helpers -----------------------------------------------------
-
-  String _max(List<double> v) => v.isEmpty ? '--' : formatNumber(v.reduce(math.max));
-  String _min(List<double> v) => v.isEmpty ? '--' : formatNumber(v.reduce(math.min));
-  String _avg(List<double> v) =>
-      v.isEmpty ? '--' : formatNumber(v.reduce((a, b) => a + b) / v.length);
-  String _yesterday(DashboardSummaryModel s, List<double> v) {
-    if (v.length >= 2) return formatNumber(v[v.length - 2]);
-    if (s.activity != null) return formatNumber(s.activity!.value);
-    return '--';
-  }
-
-  int _hrv(List<double> v) {
-    if (v.length < 2) return 0;
-    final mean = v.reduce((a, b) => a + b) / v.length;
-    final variance =
-        v.map((x) => (x - mean) * (x - mean)).reduce((a, b) => a + b) / v.length;
-    return (math.sqrt(variance) * 4 + 30).clamp(20, 120).round();
-  }
-
-  double _stressProgress(DashboardSummaryModel s) {
-    final hr = s.heartRate?.value;
-    if (hr == null) return 0;
-    final max = s.settings.heartRateMax.toDouble();
-    return (hr / max).clamp(0.0, 1.0);
-  }
-
-  String _stressLabel(DashboardSummaryModel s) {
-    final hr = s.heartRate?.value;
-    if (hr == null) return '--';
-    final mid = (s.settings.heartRateMin + s.settings.heartRateMax) / 2;
-    if (hr <= mid) return 'Low';
-    if (hr <= s.settings.heartRateMax) return 'Moderate';
-    return 'High';
-  }
-}
-
-class _TopBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = AppTokens.of(context);
-    return BlocBuilder<ProfileCubit, ProfileState>(
-      builder: (context, profile) => Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded),
-          ),
-          Text(
-            'Hi ${profile.firstName}',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Icon(Icons.notifications_none_rounded, size: 22, color: tokens.accentColor),
-          const Spacer(),
-          ProfileAvatar(photoUrl: profile.profile?.photoUrl, size: 38),
         ],
       ),
     );
   }
 }
 
-class _SignatureStrip extends StatelessWidget {
-  const _SignatureStrip({required this.kind});
+class _RangeChooser extends StatelessWidget {
+  const _RangeChooser({required this.state});
 
-  final MetricKind kind;
+  final MetricDetailState state;
 
   @override
   Widget build(BuildContext context) {
-    final tokens = AppTokens.of(context);
-    final painter = switch (kind) {
-      MetricKind.heart => EcgPainter(
-        color: tokens.glow,
-        gridColor: (tokens.isDark ? Colors.white : Colors.black)
-            .withValues(alpha: 0.06),
+    final values = MetricRange.values;
+    return Center(
+      child: RangeToggle(
+        index: values.indexOf(state.range),
+        labels: values.map((range) => range.label).toList(),
+        onChanged: (index) => context
+            .read<MetricDetailBloc>()
+            .add(MetricRangeChanged(values[index])),
       ),
-      MetricKind.steps => FootstepsPainter(
-        color: tokens.accentColor,
-        muted: tokens.textMuted.withValues(alpha: 0.5),
-      ),
-      MetricKind.spo2 => BubblesPainter(color: tokens.accentColor),
-      MetricKind.calories => FlamePainter(color: tokens.accentColor),
-    };
-    return SizedBox(
-      height: 70,
-      width: double.infinity,
-      child: CustomPaint(painter: painter),
     );
   }
 }
 
-class _StatRow extends StatelessWidget {
-  const _StatRow({required this.label, required this.value});
+class _Stats extends StatelessWidget {
+  const _Stats({required this.spec, required this.state});
+
+  final MetricSpec spec;
+  final MetricDetailState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _statItems(spec, state);
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          Expanded(child: _StatTile(label: items[i].$1, value: items[i].$2)),
+          if (i < items.length - 1) const SizedBox(width: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({required this.label, required this.value});
 
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: AppTypography.monoStyle(14, FontWeight.w400, color: onSurface)),
-        Text(value, style: AppTypography.monoStyle(14, FontWeight.w700, color: onSurface)),
-      ],
-    );
-  }
-}
-
-class _MiniCard extends StatelessWidget {
-  const _MiniCard({required this.title, required this.value, this.italic = false});
-
-  final String title;
-  final String value;
-  final bool italic;
-
-  @override
-  Widget build(BuildContext context) {
     final tokens = AppTokens.of(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          tokens.accentColor.withValues(alpha: 0.16),
-          tokens.card,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
+    return GlowCard(
+      padding: const EdgeInsets.all(13),
+      radius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
-            style: AppTypography.monoStyle(11, FontWeight.w400, color: tokens.textMuted),
-          ),
-          const SizedBox(height: 6),
-          Text(
             value,
+            overflow: TextOverflow.ellipsis,
             style: AppTypography.monoStyle(
-              italic ? 12 : 17,
+              18,
               FontWeight.w700,
               color: Theme.of(context).colorScheme.onSurface,
-            ).copyWith(fontStyle: italic ? FontStyle.italic : FontStyle.normal),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.monoStyle(
+              10,
+              FontWeight.w400,
+              color: tokens.textMuted,
+            ),
           ),
         ],
       ),
@@ -431,76 +281,249 @@ class _MiniCard extends StatelessWidget {
   }
 }
 
-class _TrendCard extends StatelessWidget {
-  const _TrendCard({required this.kind, required this.points});
+class _Chart extends StatelessWidget {
+  const _Chart({required this.spec, required this.state});
 
-  final MetricKind kind;
-  final List<TrendPointModel> points;
+  final MetricSpec spec;
+  final MetricDetailState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.bloodPressure != null) {
+      return _BloodPressureChart(data: state.bloodPressure!, color: spec.color);
+    }
+    final series = state.series;
+    if (series == null || series.series.isEmpty) {
+      return const EmptyView(
+        icon: Icons.timeline_rounded,
+        title: 'No points',
+        message: 'The backend returned no series points for this range.',
+      );
+    }
+    return _MetricSeriesChart(
+      series: series,
+      skinSeries: state.skinSeries,
+      color: spec.color,
+    );
+  }
+}
+
+class _MetricSeriesChart extends StatelessWidget {
+  const _MetricSeriesChart({
+    required this.series,
+    required this.skinSeries,
+    required this.color,
+  });
+
+  final MetricSeries series;
+  final List<TimeValue> skinSeries;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final tokens = AppTokens.of(context);
     return GlowCard(
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+      child: SizedBox(
+        height: 240,
+        child: SfCartesianChart(
+          plotAreaBorderWidth: 0,
+          margin: EdgeInsets.zero,
+          primaryXAxis: NumericAxis(
+            majorGridLines: const MajorGridLines(width: 0),
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+            labelStyle: AppTypography.monoStyle(
+              10,
+              FontWeight.w400,
+              color: tokens.textMuted,
+            ),
+          ),
+          primaryYAxis: NumericAxis(
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+            majorGridLines: MajorGridLines(width: 0.5, color: tokens.track),
+            labelStyle: AppTypography.monoStyle(
+              10,
+              FontWeight.w400,
+              color: tokens.textMuted,
+            ),
+          ),
+          tooltipBehavior: TooltipBehavior(enable: true),
+          series: <CartesianSeries<TimeValue, int>>[
+            SplineAreaSeries<TimeValue, int>(
+              dataSource: series.series,
+              xValueMapper: (_, index) => index,
+              yValueMapper: (point, _) => point.value,
+              name: series.unit.isEmpty ? 'Value' : series.unit,
+              borderColor: color,
+              borderWidth: 2.6,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  color.withValues(alpha: 0.30),
+                  color.withValues(alpha: 0.02),
+                ],
+              ),
+            ),
+            if (skinSeries.isNotEmpty)
+              LineSeries<TimeValue, int>(
+                dataSource: skinSeries,
+                xValueMapper: (_, index) => index,
+                yValueMapper: (point, _) => point.value,
+                name: 'Skin',
+                color: tokens.warning,
+                width: 2,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BloodPressureChart extends StatelessWidget {
+  const _BloodPressureChart({required this.data, required this.color});
+
+  final BloodPressureSeries data;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (data.series.isEmpty) {
+      return const EmptyView(
+        icon: Icons.monitor_heart_rounded,
+        title: 'No blood pressure points',
+        message: 'The backend returned no blood pressure points for this range.',
+      );
+    }
+    final tokens = AppTokens.of(context);
+    return GlowCard(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+      child: SizedBox(
+        height: 240,
+        child: SfCartesianChart(
+          plotAreaBorderWidth: 0,
+          margin: EdgeInsets.zero,
+          primaryXAxis: NumericAxis(
+            majorGridLines: const MajorGridLines(width: 0),
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+          ),
+          primaryYAxis: NumericAxis(
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+            majorGridLines: MajorGridLines(width: 0.5, color: tokens.track),
+          ),
+          tooltipBehavior: TooltipBehavior(enable: true),
+          legend: const Legend(isVisible: true),
+          series: <CartesianSeries<BpPoint, int>>[
+            LineSeries<BpPoint, int>(
+              dataSource: data.series,
+              xValueMapper: (_, index) => index,
+              yValueMapper: (point, _) => point.systolic,
+              name: 'Systolic',
+              color: color,
+              width: 2.5,
+            ),
+            LineSeries<BpPoint, int>(
+              dataSource: data.series,
+              xValueMapper: (_, index) => index,
+              yValueMapper: (point, _) => point.diastolic,
+              name: 'Diastolic',
+              color: tokens.accentColor,
+              width: 2.5,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Warnings extends StatelessWidget {
+  const _Warnings({required this.spec, required this.state});
+
+  final MetricSpec spec;
+  final MetricDetailState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final warnings = state.series?.warningRecords ??
+        state.bloodPressure?.warningRecords ??
+        const <WarningRecord>[];
+    if (warnings.isEmpty && spec.normalLow == null && spec.normalHigh == null) {
+      return const SizedBox.shrink();
+    }
+    final tokens = AppTokens.of(context);
+    return GlowCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader('Trend'),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 180,
-            child: points.isEmpty
-                ? Center(
-                    child: Text(
-                      'No ${kind.unit} readings synced yet.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  )
-                : SfCartesianChart(
-                    plotAreaBorderWidth: 0,
-                    margin: EdgeInsets.zero,
-                    primaryXAxis: DateTimeAxis(
-                      majorGridLines: const MajorGridLines(width: 0),
-                      axisLine: const AxisLine(width: 0),
-                      majorTickLines: const MajorTickLines(size: 0),
-                      dateFormat: DateFormat(points.length > 10 ? 'ha' : 'MMM d'),
-                      labelStyle: AppTypography.monoStyle(
-                        10,
-                        FontWeight.w400,
-                        color: tokens.textMuted,
-                      ),
-                    ),
-                    primaryYAxis: NumericAxis(
-                      axisLine: const AxisLine(width: 0),
-                      majorTickLines: const MajorTickLines(size: 0),
-                      majorGridLines: MajorGridLines(
-                        width: 0.5,
-                        color: tokens.track,
-                      ),
-                      labelStyle: AppTypography.monoStyle(
-                        10,
-                        FontWeight.w400,
-                        color: tokens.textMuted,
-                      ),
-                    ),
-                    series: <CartesianSeries<TrendPointModel, DateTime>>[
-                      SplineAreaSeries<TrendPointModel, DateTime>(
-                        dataSource: points,
-                        xValueMapper: (p, _) => p.recordedAt,
-                        yValueMapper: (p, _) => p.value,
-                        borderColor: tokens.accentColor,
-                        borderWidth: 2.6,
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            tokens.accentColor.withValues(alpha: 0.28),
-                            tokens.accentColor.withValues(alpha: 0.02),
-                          ],
-                        ),
-                      ),
-                    ],
+          const SectionHeader('Signals'),
+          const SizedBox(height: 10),
+          if (spec.normalLow != null || spec.normalHigh != null)
+            Text(
+              'Normal band ${spec.normalLow?.toStringAsFixed(0) ?? '-'} to ${spec.normalHigh?.toStringAsFixed(0) ?? '-'} ${spec.unit}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          if (warnings.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            for (final warning in warnings.take(4)) ...[
+              Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: tokens.warning,
+                    size: 18,
                   ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${warning.time}  ${warning.value}',
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.icon, required this.label, required this.color});
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: AppTypography.monoStyle(
+              10,
+              FontWeight.w700,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -508,38 +531,38 @@ class _TrendCard extends StatelessWidget {
   }
 }
 
-class _Insights extends StatelessWidget {
-  const _Insights({required this.summary, required this.kind});
-
-  final DashboardSummaryModel summary;
-  final MetricKind kind;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final messages = summary.insights.map((i) => i.message).toList();
-    if (messages.isEmpty) {
-      messages.add(_fallback(kind));
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final message in messages.take(2)) ...[
-          Text(message, style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 14),
-        ],
-      ],
-    );
+String _heroValue(MetricSpec spec, MetricDetailState state) {
+  if (state.bloodPressure != null) {
+    final point = state.bloodPressure!.latest;
+    if (point == null) return '--';
+    return '${formatNumber(point.systolic)}/${formatNumber(point.diastolic)}';
   }
+  final value = state.liveValue ?? state.series?.latest;
+  if (value == null || (!spec.allowZero && value == 0)) return '--';
+  final formatted = spec.decimals == 0
+      ? formatNumber(value)
+      : value.toStringAsFixed(spec.decimals);
+  return spec.unit.isEmpty ? formatted : '$formatted ${spec.unit}';
+}
 
-  String _fallback(MetricKind kind) => switch (kind) {
-    MetricKind.heart =>
-      'Keep your heart rate within your personal range to stay in the green.',
-    MetricKind.steps =>
-      'Consistent daily steps build long-term cardiovascular health.',
-    MetricKind.spo2 =>
-      'Healthy SpO₂ usually sits between 95% and 100% at rest.',
-    MetricKind.calories =>
-      'Balance active calories with nutrition for steady energy.',
-  };
+List<(String, String)> _statItems(MetricSpec spec, MetricDetailState state) {
+  if (state.bloodPressure != null) {
+    final bp = state.bloodPressure!;
+    return [
+      ('SYS avg', formatNumber(bp.avgSystolic)),
+      ('DIA avg', formatNumber(bp.avgDiastolic)),
+      ('Points', bp.series.length.toString()),
+    ];
+  }
+  final s = state.series;
+  if (s == null) {
+    return const [('Avg', '--'), ('Max', '--'), ('Points', '--')];
+  }
+  String f(double value) =>
+      spec.decimals == 0 ? formatNumber(value) : value.toStringAsFixed(spec.decimals);
+  return [
+    ('Avg', f(s.average)),
+    ('Max', f(s.max)),
+    ('Points', s.count.toString()),
+  ];
 }

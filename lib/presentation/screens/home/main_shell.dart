@@ -4,8 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../data/repositories/health_repository.dart';
-import '../../blocs/dashboard/dashboard_bloc.dart';
-import '../../widgets/add_reading_sheet.dart';
+import '../../blocs/alarms/alarms_bloc.dart';
+import '../../blocs/devices/devices_bloc.dart';
 import '../alerts/alerts_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../settings/settings_screen.dart';
@@ -15,10 +15,19 @@ class MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<DashboardBloc>(
-      create: (context) =>
-          DashboardBloc(repository: context.read<HealthRepository>())
-            ..add(const DashboardStarted()),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<DevicesBloc>(
+          create: (context) =>
+              DevicesBloc(repository: context.read<HealthRepository>())
+                ..add(const DevicesStarted()),
+        ),
+        BlocProvider<AlarmsBloc>(
+          create: (context) =>
+              AlarmsBloc(repository: context.read<HealthRepository>())
+                ..add(const AlarmsStarted()),
+        ),
+      ],
       child: const _MainShellView(),
     );
   }
@@ -38,7 +47,7 @@ class _MainShellViewState extends State<_MainShellView> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
+    final pages = <Widget>[
       DashboardScreen(onShowAlerts: () => _go(1)),
       const AlertsScreen(),
       const SettingsScreen(),
@@ -52,16 +61,8 @@ class _MainShellViewState extends State<_MainShellView> {
           child: IndexedStack(index: _index, children: pages),
         ),
       ),
-      floatingActionButton: _index == 0
-          ? FloatingActionButton(
-              onPressed: () => AddReadingSheet.show(context),
-              child: const Icon(Icons.add_rounded),
-            )
-          : null,
-      bottomNavigationBar: BlocBuilder<DashboardBloc, DashboardState>(
-        buildWhen: (p, n) =>
-            (p.summary?.activeAlerts.length ?? 0) !=
-            (n.summary?.activeAlerts.length ?? 0),
+      bottomNavigationBar: BlocBuilder<AlarmsBloc, AlarmsState>(
+        buildWhen: (p, n) => p.criticalCount != n.criticalCount,
         builder: (context, state) => AppBottomNav(
           currentIndex: _index,
           onTap: _go,
@@ -73,7 +74,7 @@ class _MainShellViewState extends State<_MainShellView> {
             AppBottomNavItem(
               icon: Icons.warning_amber_rounded,
               label: 'Alerts',
-              badge: state.summary?.activeAlerts.length ?? 0,
+              badge: state.criticalCount,
             ),
             const AppBottomNavItem(
               icon: Icons.settings_rounded,
