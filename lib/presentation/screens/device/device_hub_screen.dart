@@ -493,15 +493,8 @@ class _LiveValue extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 320),
-      transitionBuilder: (child, anim) => FadeTransition(
-        opacity: anim,
-        child: SizeTransition(
-          sizeFactor: anim,
-          axis: Axis.horizontal,
-          axisAlignment: -1,
-          child: child,
-        ),
-      ),
+      transitionBuilder: (child, anim) =>
+          FadeTransition(opacity: anim, child: child),
       child: Text(
         value,
         key: ValueKey(value),

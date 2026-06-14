@@ -1,7 +1,7 @@
 name: health_monitoring_app
 description: Stealthera health monitoring companion app.
 publish_to: 'none'
-version: 4.0.0+7
+version: 5.1.0+8
 
 environment:
   sdk: ^3.10.7
